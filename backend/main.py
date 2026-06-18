@@ -36,6 +36,14 @@ async def scan(file: UploadFile = File(...)):
     if image is None:
         return JSONResponse(status_code=400, content={"error": "Could not decode image"})
 
+    # Resize to max 1000px on longest side before processing
+    # This is the fix — large images hang on 0.1 CPU
+    h, w = image.shape[:2]
+    max_dim = 1000
+    if max(h, w) > max_dim:
+        scale = max_dim / max(h, w)
+        image = cv2.resize(image, (int(w * scale), int(h * scale)))
+
     result = scan_document(image)
 
     return {
