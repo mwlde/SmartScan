@@ -5,10 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "preview": "npm run pages:build && wrangler pages dev",
-    "deploy": "npm run pages:build && wrangler pages deploy .vercel/output/static"
+    "start": "next start"
   },
   "dependencies": {
     "next": "^15",
@@ -16,8 +13,7 @@
     "react-dom": "^18",
     "lucide-react": "^0.487.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.0.0",
-    "@cloudflare/next-on-pages": "^1"
+    "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -26,7 +22,6 @@
     "typescript": "^5",
     "tailwindcss": "^3.4.1",
     "postcss": "^8",
-    "autoprefixer": "^10.0.1",
-    "wrangler": "^3"
+    "autoprefixer": "^10.0.1"
   }
 }

@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, FileText, ScanLine, Trash2 } from 'lucide-react'
