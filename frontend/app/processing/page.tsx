@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react'
 import { scanStore } from '@/lib/scanStore'
+import { addHistoryItem, createThumbnail } from '@/lib/history'
 
 type Status = 'pending' | 'active' | 'done' | 'error'
 
@@ -77,6 +78,20 @@ export default function ProcessingPage() {
         if (!classResp.ok) throw new Error(`Classify API returned ${classResp.status}`)
         const classData = await classResp.json()
         scanStore.setClassify(classData)
+
+        // Save lightweight summary to history (thumbnail only, not all 6 images)
+        const id = `scan_${Date.now()}`
+        scanStore.setCurrentId(id)
+        const thumbnail = await createThumbnail(scanData.warped)
+        addHistoryItem({
+          id,
+          timestamp: Date.now(),
+          label: classData.label,
+          confidence: classData.confidence,
+          document_found: scanData.document_found,
+          thumbnail,
+          saved: false,
+        })
 
         set('Classify', 'done')
         clearInterval(timer)

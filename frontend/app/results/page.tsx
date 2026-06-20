@@ -2,11 +2,12 @@
 
 export const runtime = 'edge'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
+import { toggleSaved, getHistory } from '@/lib/history'
 
 const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   handwritten:   { bg: '#FEF3E2', text: '#F5A623' },
@@ -15,11 +16,12 @@ const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   printed_page:  { bg: '#F3EFFE', text: '#8B5CF6' },
 }
 
-const GRID_ITEMS = [
-  { label: 'Original',   key: 'original'          },
-  { label: 'Detected',   key: 'detected_overlay'  },
-  { label: 'Regions',    key: 'region_overlay'     },
-  { label: 'Binarized',  key: 'scan'              },
+const SLIDES = [
+  { key: 'scan',             label: 'Final',     sub: 'Binarized scan'     },
+  { key: 'warped',           label: 'Deskewed',  sub: 'Cropped & levelled' },
+  { key: 'original',         label: 'Original',  sub: 'Input image'        },
+  { key: 'detected_overlay', label: 'Detected',  sub: 'Document edge'      },
+  { key: 'region_overlay',   label: 'Regions',   sub: 'Text segments'      },
 ] as const
 
 function b64Src(b64: string) {
@@ -34,6 +36,15 @@ export default function ResultsPage() {
   const router = useRouter()
   const [scan, setScan] = useState<ScanResult | null>(null)
   const [classify, setClassify] = useState<ClassifyResult | null>(null)
+  const [isSaved, setIsSaved] = useState(false)
+  const [activeSlide, setActiveSlide] = useState(0)
+  const carouselRef = useRef<HTMLDivElement>(null)
+
+  function handleCarouselScroll() {
+    const el = carouselRef.current
+    if (!el) return
+    setActiveSlide(Math.round(el.scrollLeft / el.clientWidth))
+  }
 
   useEffect(() => {
     const result = scanStore.getScan()
@@ -41,6 +52,12 @@ export default function ResultsPage() {
     setScan(result)
     const cls = scanStore.getClassify()
     if (cls) setClassify(cls)
+    // Reflect saved state if user navigated back to this screen
+    const id = scanStore.getCurrentId()
+    if (id) {
+      const item = getHistory().find(i => i.id === id)
+      setIsSaved(item?.saved ?? false)
+    }
   }, [router])
 
   if (!scan) {
@@ -79,38 +96,58 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Main warped image */}
-        <div className="rounded-2xl overflow-hidden shadow-sm bg-white" style={{ aspectRatio: '0.8 / 1' }}>
-          {scan.warped ? (
-            <img src={b64Src(scan.warped)} alt="Warped scan" className="w-full h-full object-contain" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <p className="text-xs" style={{ color: '#BBBBBB' }}>Image unavailable</p>
-            </div>
-          )}
-        </div>
-
-        {/* 2×2 grid — original / detected / regions / binarized */}
-        <div className="grid grid-cols-2 gap-3">
-          {GRID_ITEMS.map(({ label, key }) => (
-            <div key={key} className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#F5F5F5', aspectRatio: '1 / 0.85' }}>
-              {scan[key as keyof ScanResult] ? (
-                <img
-                  src={b64Src(scan[key as keyof ScanResult] as string)}
-                  alt={label}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <p className="text-xs" style={{ color: '#BBBBBB' }}>—</p>
+        {/* Swipeable image carousel */}
+        <div className="rounded-2xl overflow-hidden shadow-sm bg-white">
+          {/* Scroll track */}
+          <div
+            ref={carouselRef}
+            className="flex overflow-x-auto [&::-webkit-scrollbar]:hidden"
+            style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none', height: '52vh' }}
+            onScroll={handleCarouselScroll}
+          >
+            {SLIDES.map(({ key, label }) => {
+              const src = scan[key as keyof ScanResult] as string | undefined
+              return (
+                <div
+                  key={key}
+                  className="flex-none w-full h-full flex items-center justify-center"
+                  style={{ scrollSnapAlign: 'start', backgroundColor: '#F8F8F8' }}
+                >
+                  {src ? (
+                    <img src={b64Src(src)} alt={label} className="w-full h-full object-contain" />
+                  ) : (
+                    <p className="text-xs" style={{ color: '#BBBBBB' }}>—</p>
+                  )}
                 </div>
-              )}
-              <p className="text-xs font-semibold px-2 pb-1.5 -mt-6 relative z-10 text-center drop-shadow"
-                style={{ color: 'white', textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
-                {label}
+              )
+            })}
+          </div>
+
+          {/* Slide label + dot indicators */}
+          <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: '#F0F0F0' }}>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#1A1A1A' }}>
+                {SLIDES[activeSlide].label}
+              </p>
+              <p className="text-xs" style={{ color: '#888' }}>
+                {SLIDES[activeSlide].sub}
               </p>
             </div>
-          ))}
+            <div className="flex items-center gap-1.5">
+              {SLIDES.map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: 6,
+                    width: i === activeSlide ? 18 : 6,
+                    borderRadius: 3,
+                    backgroundColor: i === activeSlide ? '#2D7DD2' : '#D8D8D8',
+                    transition: 'all 0.2s',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Classification badge */}
@@ -168,13 +205,17 @@ export default function ResultsPage() {
             Scan Again
           </button>
           <button
-            disabled
-            title="Sign in to save — coming with Supabase auth"
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold text-sm text-white cursor-not-allowed"
-            style={{ backgroundColor: '#C0D8F0' }}
+            onClick={() => {
+              const id = scanStore.getCurrentId()
+              if (!id) return
+              const next = toggleSaved(id)
+              setIsSaved(next)
+            }}
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold text-sm text-white transition-all active:scale-95"
+            style={{ backgroundColor: isSaved ? '#3BB273' : '#2D7DD2' }}
           >
             <Save size={16} />
-            Save Result
+            {isSaved ? 'Saved!' : 'Save Result'}
           </button>
         </div>
       </div>

@@ -23,11 +23,14 @@ export interface ClassifyResult {
 
 let _scan: ScanResult | null = null
 let _classify: ClassifyResult | null = null
+let _currentId: string | null = null
 
 export const scanStore = {
-  getScan:     ()                  => _scan,
-  getClassify: ()                  => _classify,
-  setScan:     (r: ScanResult)     => { _scan = r },
-  setClassify: (r: ClassifyResult) => { _classify = r },
-  clear:       ()                  => { _scan = null; _classify = null },
+  getScan:      ()                  => _scan,
+  getClassify:  ()                  => _classify,
+  getCurrentId: ()                  => _currentId,
+  setScan:      (r: ScanResult)     => { _scan = r },
+  setClassify:  (r: ClassifyResult) => { _classify = r },
+  setCurrentId: (id: string)        => { _currentId = id },
+  clear:        ()                  => { _scan = null; _classify = null; _currentId = null },
 }
