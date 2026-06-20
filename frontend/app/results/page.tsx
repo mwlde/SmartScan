@@ -6,24 +6,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
-
-interface ScanResult {
-  document_found: boolean
-  original: string
-  enhanced: string
-  detected_overlay: string
-  warped: string
-  scan: string
-  region_overlay: string
-  regions: Array<{ x: number; y: number; w: number; h: number }>
-  timings_ms: Record<string, number>
-  total_ms: number
-}
-
-interface ClassifyResult {
-  label: string
-  confidence: number
-}
+import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
 
 const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   handwritten:   { bg: '#FEF3E2', text: '#F5A623' },
@@ -53,11 +36,11 @@ export default function ResultsPage() {
   const [classify, setClassify] = useState<ClassifyResult | null>(null)
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('ss_scan_result')
-    if (!raw) { router.replace('/'); return }
-    setScan(JSON.parse(raw))
-    const cls = sessionStorage.getItem('ss_classify_result')
-    if (cls) setClassify(JSON.parse(cls))
+    const result = scanStore.getScan()
+    if (!result) { router.replace('/'); return }
+    setScan(result)
+    const cls = scanStore.getClassify()
+    if (cls) setClassify(cls)
   }, [router])
 
   if (!scan) {

@@ -5,6 +5,7 @@ export const runtime = 'edge'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react'
+import { scanStore } from '@/lib/scanStore'
 
 type Status = 'pending' | 'active' | 'done' | 'error'
 
@@ -58,7 +59,7 @@ export default function ProcessingPage() {
         const scanResp = await fetch(`${SCAN_API}/scan`, { method: 'POST', body: fd })
         if (!scanResp.ok) throw new Error(`Scan API returned ${scanResp.status}`)
         const scanData = await scanResp.json()
-        sessionStorage.setItem('ss_scan_result', JSON.stringify(scanData))
+        scanStore.setScan(scanData)
 
         set('Enhance', 'done'); await delay(120)
         set('Detect', 'done'); await delay(120)
@@ -75,7 +76,7 @@ export default function ProcessingPage() {
         const classResp = await fetch(`${CLASSIFY_API}/classify`, { method: 'POST', body: cf })
         if (!classResp.ok) throw new Error(`Classify API returned ${classResp.status}`)
         const classData = await classResp.json()
-        sessionStorage.setItem('ss_classify_result', JSON.stringify(classData))
+        scanStore.setClassify(classData)
 
         set('Classify', 'done')
         clearInterval(timer)
