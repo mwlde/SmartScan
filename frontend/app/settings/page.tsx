@@ -139,26 +139,20 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {[
           {
-            icon: '📷',
             title: 'Camera Access',
             body: 'Used only to capture document images for scanning. Images are processed and discarded — nothing is uploaded without your action.',
           },
           {
-            icon: '💾',
             title: 'Storage Access',
             body: 'Used to save scan history and results locally on your device using localStorage. You can clear this at any time from Settings.',
           },
           {
-            icon: '🌐',
             title: 'Network Access',
             body: 'Used to send document images to the scanning and classification services for processing. No data is retained server-side after a response is returned.',
           },
-        ].map(({ icon, title, body }) => (
+        ].map(({ title, body }) => (
           <div key={title} className="p-4 rounded-2xl" style={{ backgroundColor: '#F8F8F8' }}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-lg">{icon}</span>
-              <p className="font-semibold">{title}</p>
-            </div>
+            <p className="font-semibold mb-1.5">{title}</p>
             <p style={{ color: '#555', lineHeight: 1.65 }}>{body}</p>
           </div>
         ))}

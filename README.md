@@ -102,18 +102,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Common issues
-
-| Problem | Fix |
-|---------|-----|
-| `ModuleNotFoundError: cv2` | Make sure you activated the venv before running uvicorn |
-| `FileNotFoundError: document_classifier_v2.pt` | Put the weights file in `classifier/` (ask Maria) |
-| `npm: command not found` | Install Node.js: `brew install node` |
-| Backend returns 500 on large photos | The resize fix is already in `main.py` (max 1000px), but try a smaller image if it still times out |
-| Camera doesn't work | Must be on `localhost` — opening via IP address requires HTTPS |
-
----
-
 ## Model weights
 
 `document_classifier_v2.pt` is gitignored. The training notebook is at `classifier/csci435_version1.ipynb` if you need to retrain. To run inference, just place the `.pt` file in `classifier/` before starting the classifier service.
