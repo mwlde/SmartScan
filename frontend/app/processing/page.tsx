@@ -81,7 +81,7 @@ export default function ProcessingPage() {
         // Save lightweight summary to history (thumbnail only, not all 6 images)
         const id = `scan_${Date.now()}`
         scanStore.setCurrentId(id)
-        const thumbnail = await createThumbnail(scanData.warped)
+        const thumbnail = await createThumbnail(scanData.scan)
         addHistoryItem({
           id,
           timestamp: Date.now(),

@@ -17,7 +17,7 @@ const MAX_ITEMS = 50
 
 // ── Thumbnail generator (browser-only, call only inside useEffect) ─────────────
 
-export async function createThumbnail(warpedB64: string, maxDim = 200): Promise<string> {
+export async function createThumbnail(b64: string, maxDim = 200): Promise<string> {
   if (typeof window === 'undefined') return ''
   return new Promise(resolve => {
     const img = new Image()
@@ -30,7 +30,7 @@ export async function createThumbnail(warpedB64: string, maxDim = 200): Promise<
       resolve(canvas.toDataURL('image/jpeg', 0.75))
     }
     img.onerror = () => resolve('')
-    img.src = `data:image/png;base64,${warpedB64}`
+    img.src = `data:image/png;base64,${b64}`
   })
 }
 

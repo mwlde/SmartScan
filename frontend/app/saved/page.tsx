@@ -1,12 +1,12 @@
 'use client'
 
 
-import { useEffect, useState } from 'react'
-import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, FileText, ScanLine, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, Download, FileText, ScanLine, Trash2 } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { deleteItem, getHistory, toggleSaved, type HistoryItem } from '@/lib/history'
 
-// ── Helpers (duplicated lightly from history page to keep files independent) ──
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const LABEL_STYLES: Record<string, { bg: string; color: string }> = {
   handwritten:  { bg: '#F5F5F5', color: '#888888' },
@@ -14,6 +14,16 @@ const LABEL_STYLES: Record<string, { bg: string; color: string }> = {
   form:         { bg: '#E8F4EC', color: '#3BB273' },
   printed_page: { bg: '#F3EFFE', color: '#8B5CF6' },
 }
+
+const CATEGORY_PILLS = [
+  { key: 'all',          label: 'All'         },
+  { key: 'invoice',      label: 'Invoices'    },
+  { key: 'handwritten',  label: 'Handwritten' },
+  { key: 'form',         label: 'Forms'       },
+  { key: 'printed_page', label: 'Documents'   },
+] as const
+
+type CategoryKey = typeof CATEGORY_PILLS[number]['key']
 
 function labelStyle(label: string) {
   return LABEL_STYLES[label] ?? { bg: '#F5F5F5', color: '#888888' }
@@ -33,6 +43,34 @@ function formatDate(ts: number): string {
   return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`
 }
 
+function saveToDevice(thumbnail: string, label: string, timestamp: number) {
+  const a = document.createElement('a')
+  a.href = thumbnail
+  a.download = `smartscan_${label}_${timestamp}.jpg`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+function Toast({ message, onDone }: { message: string; onDone: () => void }) {
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+  useEffect(() => {
+    const t = setTimeout(() => onDoneRef.current(), 2500)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div className="fixed bottom-24 left-4 right-4 z-50 flex justify-center pointer-events-none">
+      <div
+        className="px-5 py-3 rounded-2xl shadow-lg flex items-center gap-2"
+        style={{ backgroundColor: '#1A1A1A', color: 'white' }}
+      >
+        <span className="text-sm font-medium">{message}</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Detail view ──────────────────────────────────────────────────────────────
 
 function DetailView({
@@ -40,11 +78,13 @@ function DetailView({
   onBack,
   onUnsave,
   onDelete,
+  onToast,
 }: {
   item: HistoryItem
   onBack: () => void
   onUnsave: (id: string) => void
   onDelete: (id: string) => void
+  onToast: (msg: string) => void
 }) {
   return (
     <div className="flex flex-col bg-white" style={{ minHeight: '100dvh' }}>
@@ -127,6 +167,21 @@ function DetailView({
           <BookmarkCheck size={16} />
           Remove from Saved
         </button>
+
+        {/* Save to device */}
+        <button
+          onClick={() => {
+            if (!item.thumbnail) return
+            saveToDevice(item.thumbnail, item.label, item.timestamp)
+            onToast('Saved to device')
+          }}
+          disabled={!item.thumbnail}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold text-sm transition-all active:scale-95 border-2"
+          style={{ borderColor: '#E0E0E0', color: item.thumbnail ? '#1A1A1A' : '#BBBBBB' }}
+        >
+          <Download size={16} />
+          Save to Device
+        </button>
       </div>
 
       <BottomNav />
@@ -138,7 +193,9 @@ function DetailView({
 
 export default function SavedPage() {
   const [items, setItems] = useState<HistoryItem[]>([])
+  const [catFilter, setCatFilter] = useState<CategoryKey>('all')
   const [selected, setSelected] = useState<HistoryItem | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   function load() { setItems(getHistory().filter(i => i.saved)) }
   useEffect(() => { load() }, [])
@@ -155,14 +212,20 @@ export default function SavedPage() {
     if (selected?.id === id) setSelected(null)
   }
 
+  const displayed = items.filter(i => catFilter === 'all' ? true : i.label === catFilter)
+
   if (selected) {
     return (
-      <DetailView
-        item={selected}
-        onBack={() => setSelected(null)}
-        onUnsave={handleUnsave}
-        onDelete={handleDelete}
-      />
+      <>
+        <DetailView
+          item={selected}
+          onBack={() => setSelected(null)}
+          onUnsave={handleUnsave}
+          onDelete={handleDelete}
+          onToast={msg => setToast(msg)}
+        />
+        {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      </>
     )
   }
 
@@ -171,16 +234,38 @@ export default function SavedPage() {
       <div className="h-11 flex-shrink-0" />
 
       {/* Header */}
-      <div className="px-5 pt-4 pb-4 bg-white">
+      <div className="px-5 pt-4 pb-3 bg-white">
         <h1 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>Saved</h1>
         <p className="text-xs mt-0.5" style={{ color: '#888' }}>
           {items.length} saved scan{items.length !== 1 ? 's' : ''}
         </p>
       </div>
 
+      {/* Category filter pills */}
+      {items.length > 0 && (
+        <div
+          className="px-5 pt-3 pb-3 bg-white border-b flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
+          style={{ borderColor: 'rgba(0,0,0,0.06)', scrollbarWidth: 'none' }}
+        >
+          {CATEGORY_PILLS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setCatFilter(key)}
+              className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: catFilter === key ? '#1A1A1A' : '#F0F0F0',
+                color:           catFilter === key ? 'white'   : '#888888',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* List */}
       <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 flex flex-col gap-2">
-        {items.length === 0 ? (
+        {displayed.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center"
@@ -188,13 +273,17 @@ export default function SavedPage() {
             >
               <Bookmark size={24} style={{ color: '#CCCCCC' }} />
             </div>
-            <p className="text-sm font-semibold" style={{ color: '#888' }}>No saved scans yet</p>
+            <p className="text-sm font-semibold" style={{ color: '#888' }}>
+              {catFilter !== 'all' ? 'No saved scans in this category' : 'No saved scans yet'}
+            </p>
             <p className="text-xs text-center" style={{ color: '#BBBBBB', maxWidth: 220 }}>
-              Tap "Save Result" on the results screen to bookmark a scan here.
+              {catFilter !== 'all'
+                ? 'Try selecting a different category.'
+                : 'Tap "Save to App" on the results screen to bookmark a scan here.'}
             </p>
           </div>
         ) : (
-          items.map(item => {
+          displayed.map(item => {
             const style = labelStyle(item.label)
             return (
               <button
@@ -238,6 +327,8 @@ export default function SavedPage() {
         )}
         <div className="pb-2" />
       </div>
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
 
       <BottomNav />
     </div>

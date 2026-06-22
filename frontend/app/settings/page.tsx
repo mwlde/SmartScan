@@ -14,8 +14,42 @@ import {
   UserCircle2,
 } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
+import { getHistory, clearHistory } from '@/lib/history'
 
-// ── Storage size helper ───────────────────────────────────────────────────────
+// ── Storage helpers ───────────────────────────────────────────────────────────
+
+const QUOTA_BYTES = 5 * 1024 * 1024
+
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  invoice:      { label: 'Invoices',    color: '#2D7DD2' },
+  handwritten:  { label: 'Handwritten', color: '#F77F00' },
+  form:         { label: 'Forms',       color: '#7B2D8B' },
+  printed_page: { label: 'Documents',   color: '#2DC653' },
+}
+
+function fmtBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1_048_576) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1_048_576).toFixed(1)} MB`
+}
+
+function getStorageBreakdown() {
+  try {
+    let totalBytes = 0
+    for (const key of Object.keys(localStorage)) {
+      totalBytes += (key.length + (localStorage.getItem(key)?.length ?? 0)) * 2
+    }
+    const history = getHistory()
+    const byCategory: Record<string, number> = {}
+    for (const item of history) {
+      const bytes = JSON.stringify(item).length * 2
+      byCategory[item.label] = (byCategory[item.label] ?? 0) + bytes
+    }
+    return { totalBytes, byCategory }
+  } catch {
+    return { totalBytes: 0, byCategory: {} }
+  }
+}
 
 function getStorageUsed(): string {
   try {
@@ -33,7 +67,7 @@ function getStorageUsed(): string {
 
 // ── Static page content ───────────────────────────────────────────────────────
 
-type Section = 'privacy' | 'terms' | 'permissions' | 'licenses'
+type Section = 'privacy' | 'terms' | 'permissions' | 'licenses' | 'storage' | 'version'
 
 const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
   privacy: {
@@ -164,6 +198,90 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
     ),
   },
 
+  version: {
+    title: 'Version History',
+    content: (
+      <div className="flex flex-col gap-1 text-sm" style={{ color: '#1A1A1A' }}>
+        <div className="mb-4">
+          <p className="font-bold text-base">SmartScan</p>
+          <p className="text-xs mt-0.5" style={{ color: '#888' }}>CSCI435 · University of Wollongong in Dubai</p>
+        </div>
+
+        {([
+          {
+            version: 'v0.7',
+            title: 'Deskewing',
+            current: true,
+            body: 'Added a residual deskew step using Canny + Hough Transform, applied after perspective correction to straighten small leftover tilt in the final scanned output.',
+          },
+          {
+            version: 'v0.6',
+            title: 'Local History & Settings',
+            body: 'Added local scan history and saved results (localStorage-based, no backend required). Built out Settings screen with demo Privacy Policy, Terms of Service, Data & Permissions, and Open Source/License sections.',
+          },
+          {
+            version: 'v0.5',
+            title: 'Full-Stack App',
+            body: 'Built SmartScan as a deployed web app: Next.js frontend, FastAPI backend for the CV pipeline, separate FastAPI service on Hugging Face Spaces for the classifier. Added camera capture, processing screen with step indicators, and results screen.',
+          },
+          {
+            version: 'v0.4',
+            title: 'Detection Hardening',
+            body: 'Rebuilt document_detection.py with a 5-pass fallback system (fixed Canny → auto Canny → LAB channel → HSV white-blob → Otsu), quad validation (convexity, parallelism, angle range), edge padding, and corner self-correction via the parallelogram rule. Fixed false positives on patterned backgrounds and wooden surfaces.',
+          },
+          {
+            version: 'v0.3',
+            title: 'Bonus Classifier',
+            body: 'Added optional 10-class extended classifier (advertisement, email, form, letter, memo, news, note, report, resume, scientific_paper). Trained as a separate, independent model. 67.6% test accuracy — included as a research extension, not core deliverable.',
+          },
+          {
+            version: 'v0.2',
+            title: 'Core Classifier',
+            body: 'Trained 4-class document classifier (handwritten, invoice, form, printed_page) using MobileNetV2 frozen backbone. 98.9% test accuracy. Added classification_core.py inference module.',
+          },
+          {
+            version: 'v0.1',
+            title: 'Initial Pipeline',
+            body: "Magamed's base scanner: Canny edge detection, single epsilon polygon approximation, perspective warp, segmentation. Worked only on clean, well-lit, plain-background images.",
+          },
+        ] as { version: string; title: string; body: string; current?: boolean }[]).map((entry, i, arr) => (
+          <div key={entry.version} className="flex gap-3">
+            {/* Timeline spine */}
+            <div className="flex flex-col items-center" style={{ width: 28, flexShrink: 0 }}>
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 z-10"
+                style={{ backgroundColor: entry.current ? '#2D7DD2' : '#F0F0F0' }}
+              >
+                <span className="text-[9px] font-bold" style={{ color: entry.current ? 'white' : '#888' }}>
+                  {entry.version.replace('v', '')}
+                </span>
+              </div>
+              {i < arr.length - 1 && (
+                <div className="flex-1 w-px mt-1" style={{ backgroundColor: '#E8E8E8', minHeight: 24 }} />
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="pb-5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-semibold text-sm" style={{ color: '#1A1A1A' }}>{entry.title}</p>
+                {entry.current && (
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ backgroundColor: '#EBF3FC', color: '#2D7DD2' }}
+                  >
+                    current
+                  </span>
+                )}
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: '#555' }}>{entry.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+
   licenses: {
     title: 'Open Source & Licences',
     content: (
@@ -239,6 +357,131 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
   },
 }
 
+// ── Storage breakdown screen ──────────────────────────────────────────────────
+
+function StorageScreen({ onBack }: { onBack: () => void }) {
+  const [data, setData] = useState(() => getStorageBreakdown())
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [cleared, setCleared] = useState(false)
+
+  function handleClearAll() {
+    clearHistory()
+    setData(getStorageBreakdown())
+    setCleared(true)
+    setConfirmClear(false)
+  }
+
+  const usedPct = Math.min(100, (data.totalBytes / QUOTA_BYTES) * 100)
+  const freePct = 100 - usedPct
+  const segments = Object.entries(data.byCategory).map(([key, bytes]) => ({
+    key,
+    bytes,
+    pct: (bytes / QUOTA_BYTES) * 100,
+    meta: CATEGORY_META[key] ?? { label: key, color: '#888888' },
+  }))
+
+  return (
+    <div className="flex flex-col bg-white" style={{ minHeight: '100dvh' }}>
+      <div className="h-11 flex-shrink-0" />
+
+      <div className="flex items-center gap-3 px-4 pt-3 pb-4 border-b" style={{ borderColor: '#F0F0F0' }}>
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: '#F5F5F5' }}
+        >
+          <ArrowLeft size={18} style={{ color: '#1A1A1A' }} />
+        </button>
+        <h2 className="text-base font-bold" style={{ color: '#1A1A1A' }}>Storage Used</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-6">
+        {/* Usage summary */}
+        <div className="text-center">
+          <p className="text-3xl font-bold" style={{ color: '#1A1A1A' }}>{fmtBytes(data.totalBytes)}</p>
+          <p className="text-sm mt-1" style={{ color: '#888' }}>of {fmtBytes(QUOTA_BYTES)} used</p>
+        </div>
+
+        {/* Segmented bar */}
+        <div className="rounded-2xl overflow-hidden flex h-8" style={{ backgroundColor: '#E8E8E8' }}>
+          {segments.map(s => (
+            <div
+              key={s.key}
+              style={{ width: `${s.pct}%`, backgroundColor: s.meta.color, minWidth: s.pct > 0.5 ? 4 : 0 }}
+            />
+          ))}
+          <div style={{ flex: 1, backgroundColor: '#E8E8E8' }} />
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-col gap-3">
+          {segments.map(s => (
+            <div key={s.key} className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.meta.color }} />
+              <span className="flex-1 text-sm font-medium" style={{ color: '#1A1A1A' }}>{s.meta.label}</span>
+              <span className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{s.pct.toFixed(1)}%</span>
+              <span className="text-xs w-16 text-right" style={{ color: '#888' }}>{fmtBytes(s.bytes)}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-3">
+            <span
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ backgroundColor: '#E8E8E8', border: '1px solid #D0D0D0' }}
+            />
+            <span className="flex-1 text-sm font-medium" style={{ color: '#1A1A1A' }}>Free</span>
+            <span className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{freePct.toFixed(1)}%</span>
+            <span className="text-xs w-16 text-right" style={{ color: '#888' }}>{fmtBytes(QUOTA_BYTES - data.totalBytes)}</span>
+          </div>
+        </div>
+
+        {cleared && (
+          <div className="p-3 rounded-xl text-sm text-center" style={{ backgroundColor: '#F0FFF4', color: '#1A8A3C' }}>
+            History cleared successfully
+          </div>
+        )}
+
+        {/* Clear all */}
+        {!confirmClear ? (
+          <button
+            onClick={() => setConfirmClear(true)}
+            className="w-full py-4 rounded-2xl font-semibold text-sm transition-all active:scale-95"
+            style={{ backgroundColor: '#FDF2F2', color: '#D4183D' }}
+          >
+            Clear All Scans
+          </button>
+        ) : (
+          <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ backgroundColor: '#FDF2F2' }}>
+            <p className="text-sm font-semibold text-center" style={{ color: '#D4183D' }}>
+              Delete all scan history?
+            </p>
+            <p className="text-xs text-center" style={{ color: '#D4183D', opacity: 0.7 }}>
+              This cannot be undone.
+            </p>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm"
+                style={{ backgroundColor: 'white', color: '#1A1A1A' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearAll}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white"
+                style={{ backgroundColor: '#D4183D' }}
+              >
+                Delete All
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <BottomNav />
+    </div>
+  )
+}
+
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
 function SectionLabel({ title }: { title: string }) {
@@ -311,7 +554,12 @@ export default function SettingsPage() {
 
   useEffect(() => { setStorageUsed(getStorageUsed()) }, [])
 
-  // ── Detail view ────────────────────────────────────────────────────────────
+  // ── Storage detail view ────────────────────────────────────────────────────
+  if (selected === 'storage') {
+    return <StorageScreen onBack={() => setSelected(null)} />
+  }
+
+  // ── Other detail views ─────────────────────────────────────────────────────
   if (selected) {
     const page = PAGES[selected]
     return (
@@ -368,7 +616,7 @@ export default function SettingsPage() {
         <SettingsCard>
           <Toggle icon={<Bell size={18} />} label="Notifications" enabled={notificationsOn} onToggle={() => setNotificationsOn(v => !v)} />
           <Divider />
-          <Row icon={<HardDrive size={18} />} label="Storage Used" value={storageUsed} />
+          <Row icon={<HardDrive size={18} />} label="Storage Used" value={storageUsed} onPress={() => setSelected('storage')} />
           <Divider />
           <Row icon={<Sliders size={18} />} label="Default Scan Quality" value="High" />
         </SettingsCard>
@@ -386,7 +634,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="1.4.2" />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.7" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -401,7 +649,7 @@ export default function SettingsPage() {
             Sign In / Create Account
           </button>
           <p className="text-center text-xs mt-3" style={{ color: '#BBBBBB' }}>
-            SmartScan v1.4.2 · CSCI435 Demo
+            SmartScan v0.7 · CSCI435 Demo
           </p>
         </div>
       </div>

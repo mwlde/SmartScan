@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Download, RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
 import { toggleSaved, getHistory } from '@/lib/history'
@@ -36,6 +36,8 @@ export default function ResultsPage() {
   const [scan, setScan] = useState<ScanResult | null>(null)
   const [classify, setClassify] = useState<ClassifyResult | null>(null)
   const [isSaved, setIsSaved] = useState(false)
+  const [showSaveSheet, setShowSaveSheet] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const [activeSlide, setActiveSlide] = useState(0)
   const carouselRef = useRef<HTMLDivElement>(null)
 
@@ -204,22 +206,120 @@ export default function ResultsPage() {
             Scan Again
           </button>
           <button
-            onClick={() => {
-              const id = scanStore.getCurrentId()
-              if (!id) return
-              const next = toggleSaved(id)
-              setIsSaved(next)
-            }}
+            onClick={() => setShowSaveSheet(true)}
             className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold text-sm text-white transition-all active:scale-95"
             style={{ backgroundColor: isSaved ? '#3BB273' : '#2D7DD2' }}
           >
-            <Save size={16} />
+            {isSaved ? <BookmarkCheck size={16} /> : <Save size={16} />}
             {isSaved ? 'Saved!' : 'Save Result'}
           </button>
         </div>
       </div>
 
+      {/* Save options sheet */}
+      {showSaveSheet && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setShowSaveSheet(false)}
+        >
+          <div
+            className="bg-white rounded-t-3xl px-5 pt-5 pb-10"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E0E0E0' }} />
+            <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>Save Scan</h3>
+            <p className="text-sm mb-5" style={{ color: '#888' }}>Choose where to save this result.</p>
+
+            <div className="flex flex-col gap-3">
+              {/* Save to App */}
+              <button
+                onClick={() => {
+                  const id = scanStore.getCurrentId()
+                  if (id && !isSaved) { toggleSaved(id); setIsSaved(true) }
+                  setShowSaveSheet(false)
+                  setToast(isSaved ? 'Already saved to app' : 'Saved to app')
+                }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
+                style={{ backgroundColor: '#EBF3FC' }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#2D7DD2' }}
+                >
+                  {isSaved ? <BookmarkCheck size={20} color="white" /> : <Bookmark size={20} color="white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
+                    Save to App {isSaved ? '✓' : ''}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: '#6699CC' }}>
+                    Bookmark in your scan history
+                  </p>
+                </div>
+              </button>
+
+              {/* Save to Device */}
+              <button
+                onClick={() => {
+                  if (!scan) return
+                  const label = classify?.label ?? 'scan'
+                  const a = document.createElement('a')
+                  a.href = `data:image/png;base64,${scan.scan}`
+                  a.download = `smartscan_${label}_${Date.now()}.png`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  setShowSaveSheet(false)
+                  setToast('Saved to device')
+                }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
+                style={{ backgroundColor: '#F5F5F5' }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#1A1A1A' }}
+                >
+                  <Download size={20} color="white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>Save to Device</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#888' }}>
+                    Download final scan as PNG
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <ToastBanner message={toast} onDone={() => setToast(null)} />
+      )}
+
       <BottomNav />
+    </div>
+  )
+}
+
+function ToastBanner({ message, onDone }: { message: string; onDone: () => void }) {
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+  useEffect(() => {
+    const t = setTimeout(() => onDoneRef.current(), 2500)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div className="fixed bottom-24 left-4 right-4 z-50 flex justify-center pointer-events-none">
+      <div
+        className="px-5 py-3 rounded-2xl shadow-lg flex items-center gap-2"
+        style={{ backgroundColor: '#1A1A1A', color: 'white' }}
+      >
+        <CheckCircle2 size={15} style={{ color: '#3BB273', flexShrink: 0 }} />
+        <span className="text-sm font-medium">{message}</span>
+      </div>
     </div>
   )
 }
