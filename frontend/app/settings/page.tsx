@@ -209,9 +209,19 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
+            version: 'v0.10',
+            title: 'Folder System',
+            current: true,
+            body: 'Added a folder-based organisation system to the Saved screen. Create named folders, assign scans to them from the Results screen, and browse folder contents. Folder assignment step added to the Save sheet after saving to app.',
+          },
+          {
+            version: 'v0.9',
+            title: 'Default Scan Quality',
+            body: 'Added a Low / Medium / High scan quality setting in Settings (stored in localStorage). The chosen quality is sent to the backend as a form field, which maps it to a work_height for the document detection pass (350 / 500 / 800 px). Quality is also stored on each history item and shown as a coloured badge in History and Saved screens.',
+          },
+          {
             version: 'v0.8',
             title: 'Save & Filter Improvements',
-            current: true,
             body: 'Added category filtering (Invoices, Handwritten, Forms, Documents) to History and Saved screens. Replaced the Save button on results with a choice sheet — save to app or download to device as PNG. Added toast confirmations. Fixed history thumbnails to show the final binarized scan instead of the raw warped image.',
           },
           {
@@ -680,7 +690,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.8" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.10" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -695,7 +705,7 @@ export default function SettingsPage() {
             Sign In / Create Account
           </button>
           <p className="text-center text-xs mt-3" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.8 · CSCI435 Demo
+            SmartScan v0.10 · CSCI435 Demo
           </p>
         </div>
       </div>

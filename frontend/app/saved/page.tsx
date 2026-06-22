@@ -1,112 +1,169 @@
 'use client'
 
-
-import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, Download, FileText, ScanLine, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, FolderOpen, Image as ImageIcon, Plus, Trash2 } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
-import { deleteItem, getHistory, toggleSaved, type HistoryItem } from '@/lib/history'
+import { getHistory, type HistoryItem } from '@/lib/history'
+import {
+  getFolders, createFolder, deleteFolder,
+  removeItemFromFolder, type Folder,
+} from '@/lib/folders'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Folder card ───────────────────────────────────────────────────────────────
 
-const LABEL_STYLES: Record<string, { bg: string; color: string }> = {
-  handwritten:  { bg: '#F5F5F5', color: '#888888' },
-  invoice:      { bg: '#EBF3FC', color: '#2D7DD2' },
-  form:         { bg: '#E8F4EC', color: '#3BB273' },
-  printed_page: { bg: '#F3EFFE', color: '#8B5CF6' },
-}
+function FolderCard({
+  folder, items, onClick,
+}: { folder: Folder; items: HistoryItem[]; onClick: () => void }) {
+  const MAX_THUMBS = 3
+  const visible = items.slice(0, MAX_THUMBS)
+  const overflow = Math.max(0, items.length - MAX_THUMBS)
 
-const CATEGORY_PILLS = [
-  { key: 'all',          label: 'All'         },
-  { key: 'invoice',      label: 'Invoices'    },
-  { key: 'handwritten',  label: 'Handwritten' },
-  { key: 'form',         label: 'Forms'       },
-  { key: 'printed_page', label: 'Documents'   },
-] as const
-
-type CategoryKey = typeof CATEGORY_PILLS[number]['key']
-
-function labelStyle(label: string) {
-  return LABEL_STYLES[label] ?? { bg: '#F5F5F5', color: '#888888' }
-}
-
-function formatLabel(s: string) {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
-
-function formatDate(ts: number): string {
-  const d = new Date(ts)
-  const now = new Date()
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000)
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  if (diffDays === 0) return `Today, ${time}`
-  if (diffDays === 1) return `Yesterday, ${time}`
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`
-}
-
-const QUALITY_STYLES: Record<string, { bg: string; color: string }> = {
-  low:    { bg: '#F5F5F5', color: '#888888' },
-  medium: { bg: '#EBF3FC', color: '#2D7DD2' },
-  high:   { bg: '#E8F4EC', color: '#3BB273' },
-}
-
-function qualityStyle(q?: string) {
-  return QUALITY_STYLES[q ?? 'medium'] ?? QUALITY_STYLES.medium
-}
-
-function formatQuality(q?: string) {
-  const s = q ?? 'medium'
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
-function saveToDevice(thumbnail: string, label: string, timestamp: number) {
-  const a = document.createElement('a')
-  a.href = thumbnail
-  a.download = `smartscan_${label}_${timestamp}.jpg`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-}
-
-function Toast({ message, onDone }: { message: string; onDone: () => void }) {
-  const onDoneRef = useRef(onDone)
-  onDoneRef.current = onDone
-  useEffect(() => {
-    const t = setTimeout(() => onDoneRef.current(), 2500)
-    return () => clearTimeout(t)
-  }, [])
   return (
-    <div className="fixed bottom-24 left-4 right-4 z-50 flex justify-center pointer-events-none">
+    <button
+      onClick={onClick}
+      className="bg-white rounded-2xl p-4 text-left transition-all active:scale-[0.97]"
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+    >
+      {/* Icon */}
       <div
-        className="px-5 py-3 rounded-2xl shadow-lg flex items-center gap-2"
-        style={{ backgroundColor: '#1A1A1A', color: 'white' }}
+        className="w-12 h-12 rounded-xl flex items-center justify-center mb-3"
+        style={{ backgroundColor: folder.bg }}
       >
-        <span className="text-sm font-medium">{message}</span>
+        <FolderOpen size={24} style={{ color: folder.color }} />
+      </div>
+
+      {/* Name + count */}
+      <p className="font-bold text-sm leading-snug" style={{ color: '#1A1A1A' }}>{folder.name}</p>
+      <p className="text-xs mt-0.5 mb-3" style={{ color: '#888' }}>
+        {items.length} scan{items.length !== 1 ? 's' : ''}
+      </p>
+
+      {/* Thumbnail strip */}
+      <div className="flex gap-1.5">
+        {visible.map(item => (
+          <div
+            key={item.id}
+            className="h-7 rounded-lg overflow-hidden flex-1"
+            style={{ backgroundColor: folder.bg }}
+          >
+            {item.thumbnail && (
+              <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+            )}
+          </div>
+        ))}
+        {/* Fill at least one placeholder when empty */}
+        {visible.length === 0 && (
+          <div className="h-7 rounded-lg flex-1" style={{ backgroundColor: folder.bg }} />
+        )}
+        {overflow > 0 && (
+          <div
+            className="h-7 px-2 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+            style={{ backgroundColor: '#F0F0F0', color: '#888' }}
+          >
+            +{overflow}
+          </div>
+        )}
+      </div>
+    </button>
+  )
+}
+
+// ── New folder card ───────────────────────────────────────────────────────────
+
+function NewFolderCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.97]"
+      style={{ border: '2px dashed #D0D0D0', minHeight: 168 }}
+    >
+      <Plus size={22} style={{ color: '#BBBBBB' }} />
+      <p className="text-sm font-medium" style={{ color: '#BBBBBB' }}>New Folder</p>
+    </button>
+  )
+}
+
+// ── New folder sheet ──────────────────────────────────────────────────────────
+
+function NewFolderSheet({
+  onCancel, onCreate,
+}: { onCancel: () => void; onCreate: (name: string) => void }) {
+  const [name, setName] = useState('')
+  const ready = name.trim().length > 0
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col justify-end"
+      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-t-3xl px-5 pt-4 pb-10"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E0E0E0' }} />
+        <h3 className="text-lg font-bold mb-5" style={{ color: '#1A1A1A' }}>New Folder</h3>
+
+        {/* Input */}
+        <div
+          className="flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-5"
+          style={{ backgroundColor: '#F5F5F5' }}
+        >
+          <FolderOpen size={18} style={{ color: '#BBBBBB' }} />
+          <input
+            autoFocus
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: '#1A1A1A' }}
+            placeholder="Folder name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && ready) onCreate(name) }}
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3.5 rounded-full font-semibold text-sm border-2"
+            style={{ borderColor: '#E0E0E0', color: '#888' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => ready && onCreate(name)}
+            className="flex-1 py-3.5 rounded-full font-semibold text-sm text-white transition-all"
+            style={{ backgroundColor: ready ? '#2D7DD2' : '#BBBBBB' }}
+          >
+            Create
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
-// ── Detail view ──────────────────────────────────────────────────────────────
+// ── Folder detail view ────────────────────────────────────────────────────────
 
-function DetailView({
-  item,
-  onBack,
-  onUnsave,
-  onDelete,
-  onToast,
+function FolderDetailView({
+  folder, allHistory, onBack, onDelete, onRemoveItem,
 }: {
-  item: HistoryItem
+  folder: Folder
+  allHistory: HistoryItem[]
   onBack: () => void
-  onUnsave: (id: string) => void
-  onDelete: (id: string) => void
-  onToast: (msg: string) => void
+  onDelete: () => void
+  onRemoveItem: (itemId: string) => void
 }) {
+  const router = useRouter()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const items = allHistory.filter(h => folder.itemIds.includes(h.id))
+
   return (
     <div className="flex flex-col bg-white" style={{ minHeight: '100dvh' }}>
       <div className="h-11 flex-shrink-0" />
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-3 pb-4">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-4 border-b" style={{ borderColor: '#F0F0F0' }}>
         <button
           onClick={onBack}
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -115,13 +172,11 @@ function DetailView({
           <ArrowLeft size={18} style={{ color: '#1A1A1A' }} />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold truncate" style={{ color: '#1A1A1A' }}>
-            {formatLabel(item.label)}
-          </h2>
-          <p className="text-xs" style={{ color: '#888' }}>{formatDate(item.timestamp)}</p>
+          <h2 className="text-lg font-bold truncate" style={{ color: '#1A1A1A' }}>{folder.name}</h2>
+          <p className="text-xs" style={{ color: '#888' }}>{items.length} item{items.length !== 1 ? 's' : ''}</p>
         </div>
         <button
-          onClick={() => onDelete(item.id)}
+          onClick={() => setConfirmDelete(true)}
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: '#FDF2F2' }}
         >
@@ -129,119 +184,158 @@ function DetailView({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-4">
-        {/* Thumbnail */}
-        <div
-          className="w-full rounded-2xl overflow-hidden flex items-center justify-center"
-          style={{ backgroundColor: '#F8F8F8', aspectRatio: '4/3' }}
-        >
-          {item.thumbnail ? (
-            <img src={item.thumbnail} alt="Scan" className="w-full h-full object-contain" />
-          ) : (
-            <ScanLine size={36} style={{ color: '#CCCCCC' }} />
-          )}
-        </div>
-
-        {/* Classification badge */}
-        <div
-          className="flex items-center justify-between px-5 py-3.5 rounded-full"
-          style={{ backgroundColor: '#2D7DD2' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <FileText size={16} color="white" />
-            <span className="text-white font-semibold text-sm">{formatLabel(item.label)}</span>
+      {/* Content */}
+      {items.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8">
+          <div
+            className="w-20 h-20 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: '#F5F5F5' }}
+          >
+            <ImageIcon size={32} style={{ color: '#CCCCCC' }} />
           </div>
-          <span className="text-white font-bold text-sm">
-            {(item.confidence * 100).toFixed(1)}%
-          </span>
+          <div className="text-center">
+            <p className="font-bold text-base mb-1" style={{ color: '#1A1A1A' }}>No scans yet</p>
+            <p className="text-sm" style={{ color: '#888', lineHeight: 1.6 }}>
+              Scan a document and save it here from the Results screen.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/camera')}
+            className="px-8 py-3.5 rounded-full font-bold text-sm text-white"
+            style={{ backgroundColor: '#2D7DD2' }}
+          >
+            Scan Now
+          </button>
         </div>
-
-        {/* Stats */}
-        <div className="flex gap-2">
-          {[
-            { label: 'Confidence', value: `${(item.confidence * 100).toFixed(1)}%` },
-            { label: 'Doc Found',  value: item.document_found ? 'Yes' : 'No'       },
-            { label: 'Quality',    value: formatQuality(item.quality)               },
-          ].map(({ label, value }) => (
+      ) : (
+        <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 flex flex-col gap-2">
+          {items.map(item => (
             <div
-              key={label}
-              className="flex-1 flex flex-col items-center py-3.5 rounded-2xl"
-              style={{ backgroundColor: '#F8F8F8' }}
+              key={item.id}
+              className="flex items-center gap-3 p-3.5 rounded-2xl"
+              style={{ backgroundColor: '#FAFAFA', border: '1px solid #F0F0F0' }}
             >
-              <span className="text-xs" style={{ color: '#888' }}>{label}</span>
-              <span className="text-sm font-bold mt-0.5" style={{ color: '#1A1A1A' }}>{value}</span>
+              <div
+                className="flex-shrink-0 w-12 h-14 rounded-xl overflow-hidden flex items-center justify-center"
+                style={{ backgroundColor: '#F0F0F0' }}
+              >
+                {item.thumbnail ? (
+                  <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon size={18} style={{ color: '#CCCCCC' }} />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: '#1A1A1A' }}>
+                  {item.label.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#888' }}>
+                  {new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+              <button
+                onClick={() => onRemoveItem(item.id)}
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: '#F5F5F5' }}
+              >
+                <Trash2 size={14} style={{ color: '#AAAAAA' }} />
+              </button>
             </div>
           ))}
         </div>
+      )}
 
-        {/* Unsave */}
-        <button
-          onClick={() => onUnsave(item.id)}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold text-sm border-2 transition-all active:scale-95"
-          style={{ borderColor: '#3BB273', color: '#3BB273' }}
+      {/* Delete folder confirm */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setConfirmDelete(false)}
         >
-          <BookmarkCheck size={16} />
-          Remove from Saved
-        </button>
-
-        {/* Save to device */}
-        <button
-          onClick={() => {
-            if (!item.thumbnail) return
-            saveToDevice(item.thumbnail, item.label, item.timestamp)
-            onToast('Saved to device')
-          }}
-          disabled={!item.thumbnail}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold text-sm transition-all active:scale-95 border-2"
-          style={{ borderColor: '#E0E0E0', color: item.thumbnail ? '#1A1A1A' : '#BBBBBB' }}
-        >
-          <Download size={16} />
-          Save to Device
-        </button>
-      </div>
+          <div
+            className="bg-white rounded-t-3xl px-6 pt-5 pb-10"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E0E0E0' }} />
+            <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>Delete folder?</h3>
+            <p className="text-sm mb-5" style={{ color: '#888' }}>
+              The folder will be deleted. Scans inside will remain in your history.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-3.5 rounded-full font-semibold text-sm border-2"
+                style={{ borderColor: '#E0E0E0', color: '#888' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onDelete}
+                className="flex-1 py-3.5 rounded-full font-semibold text-sm text-white"
+                style={{ backgroundColor: '#D4183D' }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
   )
 }
 
-// ── List view ────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SavedPage() {
-  const [items, setItems] = useState<HistoryItem[]>([])
-  const [catFilter, setCatFilter] = useState<CategoryKey>('all')
-  const [selected, setSelected] = useState<HistoryItem | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [folders, setFolders] = useState<Folder[]>([])
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [activeFolder, setActiveFolder] = useState<Folder | null>(null)
+  const [showSheet, setShowSheet] = useState(false)
 
-  function load() { setItems(getHistory().filter(i => i.saved)) }
-  useEffect(() => { load() }, [])
-
-  function handleUnsave(id: string) {
-    toggleSaved(id)
-    load()
-    if (selected?.id === id) setSelected(null)
+  function load() {
+    const f = getFolders()
+    setFolders(f)
+    setHistory(getHistory())
+    // Keep activeFolder in sync if it's open
+    if (activeFolder) {
+      setActiveFolder(f.find(x => x.id === activeFolder.id) ?? null)
+    }
   }
 
-  function handleDelete(id: string) {
-    deleteItem(id)
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleCreate(name: string) {
+    createFolder(name.trim())
+    setShowSheet(false)
     load()
-    if (selected?.id === id) setSelected(null)
   }
 
-  const displayed = items.filter(i => catFilter === 'all' ? true : i.label === catFilter)
+  function handleDeleteFolder(id: string) {
+    deleteFolder(id)
+    setActiveFolder(null)
+    load()
+  }
 
-  if (selected) {
+  function handleRemoveItem(folderId: string, itemId: string) {
+    removeItemFromFolder(folderId, itemId)
+    const updated = getFolders()
+    setFolders(updated)
+    setActiveFolder(updated.find(f => f.id === folderId) ?? null)
+  }
+
+  const totalScans = folders.reduce((s, f) => s + f.itemIds.length, 0)
+
+  if (activeFolder) {
     return (
-      <>
-        <DetailView
-          item={selected}
-          onBack={() => setSelected(null)}
-          onUnsave={handleUnsave}
-          onDelete={handleDelete}
-          onToast={msg => setToast(msg)}
-        />
-        {toast && <Toast message={toast} onDone={() => setToast(null)} />}
-      </>
+      <FolderDetailView
+        folder={activeFolder}
+        allHistory={history}
+        onBack={() => setActiveFolder(null)}
+        onDelete={() => handleDeleteFolder(activeFolder.id)}
+        onRemoveItem={itemId => handleRemoveItem(activeFolder.id, itemId)}
+      />
     )
   }
 
@@ -250,107 +344,43 @@ export default function SavedPage() {
       <div className="h-11 flex-shrink-0" />
 
       {/* Header */}
-      <div className="px-5 pt-4 pb-3 bg-white">
-        <h1 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>Saved</h1>
-        <p className="text-xs mt-0.5" style={{ color: '#888' }}>
-          {items.length} saved scan{items.length !== 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {/* Category filter pills */}
-      {items.length > 0 && (
-        <div
-          className="px-5 pt-3 pb-3 bg-white border-b flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
-          style={{ borderColor: 'rgba(0,0,0,0.06)', scrollbarWidth: 'none' }}
-        >
-          {CATEGORY_PILLS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setCatFilter(key)}
-              className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={{
-                backgroundColor: catFilter === key ? '#1A1A1A' : '#F0F0F0',
-                color:           catFilter === key ? 'white'   : '#888888',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="flex items-end justify-between px-5 pt-4 pb-4 bg-white">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>Saved</h1>
+          <p className="text-xs mt-0.5" style={{ color: '#888' }}>
+            {folders.length} folder{folders.length !== 1 ? 's' : ''} · {totalScans} scan{totalScans !== 1 ? 's' : ''}
+          </p>
         </div>
-      )}
-
-      {/* List */}
-      <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 flex flex-col gap-2">
-        {displayed.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: '#EBEBEB' }}
-            >
-              <Bookmark size={24} style={{ color: '#CCCCCC' }} />
-            </div>
-            <p className="text-sm font-semibold" style={{ color: '#888' }}>
-              {catFilter !== 'all' ? 'No saved scans in this category' : 'No saved scans yet'}
-            </p>
-            <p className="text-xs text-center" style={{ color: '#BBBBBB', maxWidth: 220 }}>
-              {catFilter !== 'all'
-                ? 'Try selecting a different category.'
-                : 'Tap "Save to App" on the results screen to bookmark a scan here.'}
-            </p>
-          </div>
-        ) : (
-          displayed.map(item => {
-            const style = labelStyle(item.label)
-            return (
-              <button
-                key={item.id}
-                onClick={() => setSelected(item)}
-                className="w-full flex items-center gap-3 p-3.5 rounded-2xl text-left transition-all active:scale-[0.98]"
-                style={{ backgroundColor: 'white' }}
-              >
-                {/* Thumbnail */}
-                <div
-                  className="flex-shrink-0 w-12 h-14 rounded-xl overflow-hidden flex items-center justify-center"
-                  style={{ backgroundColor: style.bg }}
-                >
-                  {item.thumbnail ? (
-                    <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <FileText size={20} style={{ color: style.color }} />
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-semibold truncate" style={{ color: '#1A1A1A' }}>
-                      {formatLabel(item.label)}
-                    </span>
-                    <BookmarkCheck size={13} style={{ color: '#3BB273', flexShrink: 0 }} />
-                  </div>
-                  <p className="text-xs" style={{ color: '#888' }}>
-                    {(item.confidence * 100).toFixed(1)}% confidence
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-xs" style={{ color: '#BBBBBB' }}>{formatDate(item.timestamp)}</p>
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                      style={qualityStyle(item.quality)}
-                    >
-                      {formatQuality(item.quality)}
-                    </span>
-                  </div>
-                </div>
-
-                <ChevronRight size={16} style={{ color: '#DDDDDD', flexShrink: 0 }} />
-              </button>
-            )
-          })
-        )}
-        <div className="pb-2" />
+        <button
+          onClick={() => setShowSheet(true)}
+          className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-all active:scale-95"
+          style={{ backgroundColor: '#2D7DD2' }}
+        >
+          <Plus size={22} />
+        </button>
       </div>
 
-      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      {/* Folder grid */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24">
+        <div className="grid grid-cols-2 gap-3">
+          {folders.map(folder => {
+            const items = history.filter(h => folder.itemIds.includes(h.id))
+            return (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                items={items}
+                onClick={() => setActiveFolder(folder)}
+              />
+            )
+          })}
+          <NewFolderCard onClick={() => setShowSheet(true)} />
+        </div>
+      </div>
+
+      {showSheet && (
+        <NewFolderSheet onCancel={() => setShowSheet(false)} onCreate={handleCreate} />
+      )}
 
       <BottomNav />
     </div>

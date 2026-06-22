@@ -3,10 +3,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bookmark, BookmarkCheck, Download, RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Download, FolderOpen, RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
 import { toggleSaved, getHistory } from '@/lib/history'
+import { getFolders, addItemToFolder, type Folder } from '@/lib/folders'
 
 const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   handwritten:   { bg: '#FEF3E2', text: '#F5A623' },
@@ -37,6 +38,8 @@ export default function ResultsPage() {
   const [classify, setClassify] = useState<ClassifyResult | null>(null)
   const [isSaved, setIsSaved] = useState(false)
   const [showSaveSheet, setShowSaveSheet] = useState(false)
+  const [folderStep, setFolderStep] = useState(false)
+  const [folders, setFolders] = useState<Folder[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [activeSlide, setActiveSlide] = useState(0)
   const carouselRef = useRef<HTMLDivElement>(null)
@@ -59,6 +62,7 @@ export default function ResultsPage() {
       const item = getHistory().find(i => i.id === id)
       setIsSaved(item?.saved ?? false)
     }
+    setFolders(getFolders())
   }, [router])
 
   if (!scan) {
@@ -221,75 +225,119 @@ export default function ResultsPage() {
         <div
           className="fixed inset-0 z-50 flex flex-col justify-end"
           style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-          onClick={() => setShowSaveSheet(false)}
+          onClick={() => { setShowSaveSheet(false); setFolderStep(false) }}
         >
           <div
             className="bg-white rounded-t-3xl px-5 pt-5 pb-10"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E0E0E0' }} />
-            <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>Save Scan</h3>
-            <p className="text-sm mb-5" style={{ color: '#888' }}>Choose where to save this result.</p>
 
-            <div className="flex flex-col gap-3">
-              {/* Save to App */}
-              <button
-                onClick={() => {
-                  const id = scanStore.getCurrentId()
-                  if (id && !isSaved) { toggleSaved(id); setIsSaved(true) }
-                  setShowSaveSheet(false)
-                  setToast(isSaved ? 'Already saved to app' : 'Saved to app')
-                }}
-                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
-                style={{ backgroundColor: '#EBF3FC' }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: '#2D7DD2' }}
-                >
-                  {isSaved ? <BookmarkCheck size={20} color="white" /> : <Bookmark size={20} color="white" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
-                    Save to App {isSaved ? '✓' : ''}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#6699CC' }}>
-                    Bookmark in your scan history
-                  </p>
-                </div>
-              </button>
+            {!folderStep ? (
+              <>
+                <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>Save Scan</h3>
+                <p className="text-sm mb-5" style={{ color: '#888' }}>Choose where to save this result.</p>
 
-              {/* Save to Device */}
-              <button
-                onClick={() => {
-                  if (!scan) return
-                  const label = classify?.label ?? 'scan'
-                  const a = document.createElement('a')
-                  a.href = `data:image/png;base64,${scan.scan}`
-                  a.download = `smartscan_${label}_${Date.now()}.png`
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  setShowSaveSheet(false)
-                  setToast('Saved to device')
-                }}
-                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
-                style={{ backgroundColor: '#F5F5F5' }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: '#1A1A1A' }}
+                <div className="flex flex-col gap-3">
+                  {/* Save to App */}
+                  <button
+                    onClick={() => {
+                      const id = scanStore.getCurrentId()
+                      if (id && !isSaved) { toggleSaved(id); setIsSaved(true) }
+                      if (folders.length > 0) {
+                        setFolderStep(true)
+                      } else {
+                        setShowSaveSheet(false)
+                        setToast(isSaved ? 'Already saved to app' : 'Saved to app')
+                      }
+                    }}
+                    className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
+                    style={{ backgroundColor: '#EBF3FC' }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: '#2D7DD2' }}
+                    >
+                      {isSaved ? <BookmarkCheck size={20} color="white" /> : <Bookmark size={20} color="white" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
+                        Save to App{isSaved ? ' ✓' : ''}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: '#6699CC' }}>
+                        Bookmark in your scan history
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Save to Device */}
+                  <button
+                    onClick={() => {
+                      if (!scan) return
+                      const label = classify?.label ?? 'scan'
+                      const a = document.createElement('a')
+                      a.href = `data:image/png;base64,${scan.scan}`
+                      a.download = `smartscan_${label}_${Date.now()}.png`
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                      setShowSaveSheet(false)
+                      setToast('Saved to device')
+                    }}
+                    className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98]"
+                    style={{ backgroundColor: '#F5F5F5' }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: '#1A1A1A' }}
+                    >
+                      <Download size={20} color="white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>Save to Device</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#888' }}>Download final scan as PNG</p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Folder assignment step */}
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 size={18} style={{ color: '#3BB273' }} />
+                  <p className="text-base font-bold" style={{ color: '#1A1A1A' }}>Saved to app!</p>
+                </div>
+                <p className="text-sm mb-4" style={{ color: '#888' }}>Add to a folder? (optional)</p>
+
+                <div className="flex flex-col gap-2 mb-4">
+                  {folders.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => {
+                        const id = scanStore.getCurrentId()
+                        if (id) addItemToFolder(f.id, id)
+                        setShowSaveSheet(false)
+                        setFolderStep(false)
+                        setToast(`Added to ${f.name}`)
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[0.98]"
+                      style={{ backgroundColor: f.bg }}
+                    >
+                      <FolderOpen size={18} style={{ color: f.color }} />
+                      <span className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>{f.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => { setShowSaveSheet(false); setFolderStep(false); setToast('Saved to app') }}
+                  className="w-full py-2 text-sm font-semibold"
+                  style={{ color: '#888' }}
                 >
-                  <Download size={20} color="white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>Save to Device</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#888' }}>
-                    Download final scan as PNG
-                  </p>
-                </div>
-              </button>
-            </div>
+                  Skip
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
