@@ -209,9 +209,14 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
+            version: 'v0.8',
+            title: 'Save & Filter Improvements',
+            current: true,
+            body: 'Added category filtering (Invoices, Handwritten, Forms, Documents) to History and Saved screens. Replaced the Save button on results with a choice sheet — save to app or download to device as PNG. Added toast confirmations. Fixed history thumbnails to show the final binarized scan instead of the raw warped image.',
+          },
+          {
             version: 'v0.7',
             title: 'Deskewing',
-            current: true,
             body: 'Added a residual deskew step using Canny + Hough Transform, applied after perspective correction to straighten small leftover tilt in the final scanned output.',
           },
           {
@@ -634,7 +639,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.7" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.8" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -649,7 +654,7 @@ export default function SettingsPage() {
             Sign In / Create Account
           </button>
           <p className="text-center text-xs mt-3" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.7 · CSCI435 Demo
+            SmartScan v0.8 · CSCI435 Demo
           </p>
         </div>
       </div>
