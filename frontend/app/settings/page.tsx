@@ -362,6 +362,37 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
   },
 }
 
+// ── Quality selector ─────────────────────────────────────────────────────────
+
+type Quality = 'low' | 'medium' | 'high'
+
+function QualitySelector({ quality, onChange }: { quality: Quality; onChange: (q: Quality) => void }) {
+  return (
+    <div className="px-4 py-3.5 flex flex-col gap-2.5">
+      <div className="flex items-center gap-3.5">
+        <span style={{ color: '#888' }}><Sliders size={18} /></span>
+        <span className="flex-1 text-sm font-medium" style={{ color: '#1A1A1A' }}>Default Scan Quality</span>
+      </div>
+      <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: '#F0F0F0' }}>
+        {(['low', 'medium', 'high'] as const).map(q => (
+          <button
+            key={q}
+            onClick={() => onChange(q)}
+            className="flex-1 py-2 rounded-[10px] text-xs font-semibold capitalize transition-all"
+            style={{
+              backgroundColor: quality === q ? 'white' : 'transparent',
+              color: quality === q ? '#1A1A1A' : '#888888',
+              boxShadow: quality === q ? '0 1px 2px rgba(0,0,0,0.12)' : 'none',
+            }}
+          >
+            {q.charAt(0).toUpperCase() + q.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Storage breakdown screen ──────────────────────────────────────────────────
 
 function StorageScreen({ onBack }: { onBack: () => void }) {
@@ -555,9 +586,19 @@ function Toggle({ icon, label, enabled, onToggle }: {
 export default function SettingsPage() {
   const [notificationsOn, setNotificationsOn] = useState(true)
   const [storageUsed, setStorageUsed] = useState('—')
+  const [scanQuality, setScanQuality] = useState<Quality>('medium')
   const [selected, setSelected] = useState<Section | null>(null)
 
-  useEffect(() => { setStorageUsed(getStorageUsed()) }, [])
+  useEffect(() => {
+    setStorageUsed(getStorageUsed())
+    const stored = localStorage.getItem('ss_scan_quality')
+    if (stored === 'low' || stored === 'medium' || stored === 'high') setScanQuality(stored)
+  }, [])
+
+  function handleQualityChange(q: Quality) {
+    setScanQuality(q)
+    localStorage.setItem('ss_scan_quality', q)
+  }
 
   // ── Storage detail view ────────────────────────────────────────────────────
   if (selected === 'storage') {
@@ -623,7 +664,7 @@ export default function SettingsPage() {
           <Divider />
           <Row icon={<HardDrive size={18} />} label="Storage Used" value={storageUsed} onPress={() => setSelected('storage')} />
           <Divider />
-          <Row icon={<Sliders size={18} />} label="Default Scan Quality" value="High" />
+          <QualitySelector quality={scanQuality} onChange={handleQualityChange} />
         </SettingsCard>
 
         {/* Privacy & Legal */}

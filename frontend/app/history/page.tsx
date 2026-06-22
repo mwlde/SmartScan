@@ -49,6 +49,21 @@ function confidenceColor(c: number) {
   return '#D4183D'
 }
 
+const QUALITY_STYLES: Record<string, { bg: string; color: string }> = {
+  low:    { bg: '#F5F5F5', color: '#888888' },
+  medium: { bg: '#EBF3FC', color: '#2D7DD2' },
+  high:   { bg: '#E8F4EC', color: '#3BB273' },
+}
+
+function qualityStyle(q?: string) {
+  return QUALITY_STYLES[q ?? 'medium'] ?? QUALITY_STYLES.medium
+}
+
+function formatQuality(q?: string) {
+  const s = q ?? 'medium'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 function saveToDevice(thumbnail: string, label: string, timestamp: number) {
   const a = document.createElement('a')
   a.href = thumbnail
@@ -150,10 +165,11 @@ function DetailView({
 
         {/* Stats */}
         <div className="flex gap-2">
-          {([
+          {[
             { label: 'Confidence', value: `${(item.confidence * 100).toFixed(1)}%` },
             { label: 'Doc Found',  value: item.document_found ? 'Yes' : 'No'       },
-          ] as const).map(({ label, value }) => (
+            { label: 'Quality',    value: formatQuality(item.quality)               },
+          ].map(({ label, value }) => (
             <div
               key={label}
               className="flex-1 flex flex-col items-center py-3.5 rounded-2xl"
@@ -354,7 +370,15 @@ export default function HistoryPage() {
                         {(item.confidence * 100).toFixed(1)}%
                       </span>
                     </div>
-                    <p className="text-xs" style={{ color: '#BBBBBB' }}>{formatDate(item.timestamp)}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-xs" style={{ color: '#BBBBBB' }}>{formatDate(item.timestamp)}</p>
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                        style={qualityStyle(item.quality)}
+                      >
+                        {formatQuality(item.quality)}
+                      </span>
+                    </div>
                     {item.saved && (
                       <span className="text-xs font-semibold mt-0.5 inline-block" style={{ color: '#3BB273' }}>
                         Saved

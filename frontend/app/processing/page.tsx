@@ -51,10 +51,13 @@ export default function ProcessingPage() {
         // ── Step 1-3: POST /scan ─────────────────────────────────────────────
         set('Enhance', 'active')
 
+        const quality = localStorage.getItem('ss_scan_quality') ?? 'medium'
+
         const imgResp = await fetch(imageUrl!)
         const blob = await imgResp.blob()
         const fd = new FormData()
         fd.append('file', blob, 'image.jpg')
+        fd.append('quality', quality)
 
         const scanResp = await fetch(`${SCAN_API}/scan`, { method: 'POST', body: fd })
         if (!scanResp.ok) throw new Error(`Scan API returned ${scanResp.status}`)
@@ -90,6 +93,7 @@ export default function ProcessingPage() {
           document_found: scanData.document_found,
           thumbnail,
           saved: false,
+          quality,
         })
 
         set('Classify', 'done')

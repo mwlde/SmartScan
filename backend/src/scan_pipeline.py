@@ -30,7 +30,7 @@ class ScanResult:
         return sum(self.timings_ms.values())
 
 
-def scan_document(image):
+def scan_document(image, work_height=500):
     # Run the full processing branch on a BGR image. Returns ScanResult
     t = {}
 
@@ -39,7 +39,7 @@ def scan_document(image):
     t["enhance"] = (time.perf_counter() - t0) * 1000
 
     t0 = time.perf_counter()
-    corners, found = document_detection.find_document_contour(enhanced)
+    corners, found = document_detection.find_document_contour(enhanced, work_height=work_height)
     t["detect"] = (time.perf_counter() - t0) * 1000
     overlay = document_detection.draw_contour(image, corners)
 

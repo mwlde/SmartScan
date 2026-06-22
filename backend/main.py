@@ -2,7 +2,7 @@ import base64
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -28,8 +28,11 @@ def health():
     return {"status": "ok"}
 
 
+_QUALITY_MAP = {'low': 350, 'medium': 500, 'high': 800}
+
+
 @app.post("/scan")
-async def scan(file: UploadFile = File(...)):
+async def scan(file: UploadFile = File(...), quality: str = Form("medium")):
     data = await file.read()
     nparr = np.frombuffer(data, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -44,7 +47,8 @@ async def scan(file: UploadFile = File(...)):
         scale = max_dim / max(h, w)
         image = cv2.resize(image, (int(w * scale), int(h * scale)))
 
-    result = scan_document(image)
+    work_height = _QUALITY_MAP.get(quality.lower(), 500)
+    result = scan_document(image, work_height=work_height)
 
     return {
         "document_found": result.document_found,

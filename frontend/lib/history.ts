@@ -10,6 +10,7 @@ export interface HistoryItem {
   document_found: boolean
   thumbnail: string   // data:image/jpeg;base64,... at ≤200 px, '' on failure
   saved: boolean
+  quality?: string    // 'low' | 'medium' | 'high'; undefined for entries saved before v0.8
 }
 
 const KEY = 'ss_history'
