@@ -8,6 +8,7 @@ import { BottomNav } from '@/components/BottomNav'
 import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
 import { toggleSaved, getHistory } from '@/lib/history'
 import { getFolders, addItemToFolder, type Folder } from '@/lib/folders'
+import { useDogeMode } from '@/lib/useDogeMode'
 
 const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   handwritten:   { bg: '#FEF3E2', text: '#F5A623' },
@@ -34,6 +35,7 @@ function formatLabel(raw: string) {
 
 export default function ResultsPage() {
   const router = useRouter()
+  const dogeMode = useDogeMode()
   const [scan, setScan] = useState<ScanResult | null>(null)
   const [classify, setClassify] = useState<ClassifyResult | null>(null)
   const [isSaved, setIsSaved] = useState(false)
@@ -84,8 +86,12 @@ export default function ResultsPage() {
 
       {/* Header */}
       <div className="px-5 pt-3 pb-4 bg-white">
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#888' }}>Scan Result</p>
-        <h2 className="text-xl font-bold mt-0.5" style={{ color: '#1A1A1A' }}>Document Analysis</h2>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#888' }}>
+          {dogeMode ? 'Sniff Result' : 'Scan Result'}
+        </p>
+        <h2 className="text-xl font-bold mt-0.5" style={{ color: '#1A1A1A' }}>
+          {dogeMode ? 'Document Sniffed' : 'Document Analysis'}
+        </h2>
       </div>
 
       {/* Scrollable content */}
@@ -175,10 +181,10 @@ export default function ResultsPage() {
         {/* Stat chips */}
         <div className="flex gap-2">
           {[
-            { label: 'Latency',  value: `${Math.round(scan.total_ms)} ms` },
+            { label: dogeMode ? 'Sniff Time' : 'Latency',  value: `${Math.round(scan.total_ms)} ms` },
             { label: 'Regions',  value: String(scan.regions.length) },
             {
-              label: 'Found',
+              label: dogeMode ? 'Found it!' : 'Found',
               value: scan.document_found ? 'Yes' : 'No',
               icon: scan.document_found
                 ? <CheckCircle2 size={12} style={{ color: '#3BB273' }} />
@@ -207,7 +213,7 @@ export default function ResultsPage() {
             style={{ borderColor: '#2D7DD2', color: '#2D7DD2' }}
           >
             <RotateCcw size={16} />
-            Scan Again
+            {dogeMode ? 'Sniff Again' : 'Scan Again'}
           </button>
           <button
             onClick={() => setShowSaveSheet(true)}
@@ -215,7 +221,7 @@ export default function ResultsPage() {
             style={{ backgroundColor: isSaved ? '#3BB273' : '#2D7DD2' }}
           >
             {isSaved ? <BookmarkCheck size={16} /> : <Save size={16} />}
-            {isSaved ? 'Saved!' : 'Save Result'}
+            {isSaved ? (dogeMode ? 'Buried! 🦴' : 'Saved!') : (dogeMode ? 'Bury Result 🦴' : 'Save Result')}
           </button>
         </div>
       </div>
@@ -235,8 +241,12 @@ export default function ResultsPage() {
 
             {!folderStep ? (
               <>
-                <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>Save Scan</h3>
-                <p className="text-sm mb-5" style={{ color: '#888' }}>Choose where to save this result.</p>
+                <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>
+                  {dogeMode ? 'Bury This Sniff 🦴' : 'Save Scan'}
+                </h3>
+                <p className="text-sm mb-5" style={{ color: '#888' }}>
+                  {dogeMode ? 'Where should this sniff go?' : 'Choose where to save this result.'}
+                </p>
 
                 <div className="flex flex-col gap-3">
                   {/* Save to App */}
@@ -262,10 +272,10 @@ export default function ResultsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold" style={{ color: '#1A1A1A' }}>
-                        Save to App{isSaved ? ' ✓' : ''}
+                        {dogeMode ? `Bury in App${isSaved ? ' ✓' : ''}` : `Save to App${isSaved ? ' ✓' : ''}`}
                       </p>
                       <p className="text-xs mt-0.5" style={{ color: '#6699CC' }}>
-                        Bookmark in your scan history
+                        {dogeMode ? 'Hide the bone in your sniff log' : 'Bookmark in your scan history'}
                       </p>
                     </div>
                   </button>

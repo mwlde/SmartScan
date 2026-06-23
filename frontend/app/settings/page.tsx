@@ -597,13 +597,22 @@ export default function SettingsPage() {
   const [notificationsOn, setNotificationsOn] = useState(true)
   const [storageUsed, setStorageUsed] = useState('—')
   const [scanQuality, setScanQuality] = useState<Quality>('medium')
+  const [dogeMode, setDogeMode] = useState(false)
   const [selected, setSelected] = useState<Section | null>(null)
 
   useEffect(() => {
     setStorageUsed(getStorageUsed())
     const stored = localStorage.getItem('ss_scan_quality')
     if (stored === 'low' || stored === 'medium' || stored === 'high') setScanQuality(stored)
+    setDogeMode(localStorage.getItem('ss_doge_mode') === 'true')
   }, [])
+
+  function handleDogeMode(v: boolean) {
+    setDogeMode(v)
+    localStorage.setItem('ss_doge_mode', String(v))
+    // broadcast to home page if it's open in the same tab
+    window.dispatchEvent(new StorageEvent('storage', { key: 'ss_doge_mode', newValue: String(v) }))
+  }
 
   function handleQualityChange(q: Quality) {
     setScanQuality(q)
@@ -685,6 +694,17 @@ export default function SettingsPage() {
           <Row icon={<FileText size={18} />} label="Terms of Service"   onPress={() => setSelected('terms')} />
           <Divider />
           <Row icon={<Shield size={18} />}   label="Data & Permissions" onPress={() => setSelected('permissions')} />
+        </SettingsCard>
+
+        {/* Fun */}
+        <SectionLabel title="🐾 Fun" />
+        <SettingsCard>
+          <Toggle
+            icon={<span style={{ fontSize: 18 }}>🐶</span>}
+            label="Doge Mode"
+            enabled={dogeMode}
+            onToggle={() => handleDogeMode(!dogeMode)}
+          />
         </SettingsCard>
 
         {/* About */}

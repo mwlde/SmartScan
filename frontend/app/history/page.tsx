@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, Download, FileText, ScanLine, Trash2 } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { clearHistory, deleteItem, getHistory, toggleSaved, type HistoryItem } from '@/lib/history'
+import { useDogeMode } from '@/lib/useDogeMode'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -215,6 +216,7 @@ function DetailView({
 // ── List view ────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
+  const dogeMode = useDogeMode()
   const [items, setItems] = useState<HistoryItem[]>([])
   const [filter, setFilter] = useState<'all' | 'saved'>('all')
   const [catFilter, setCatFilter] = useState<CategoryKey>('all')
@@ -272,9 +274,11 @@ export default function HistoryPage() {
 
       {/* Header */}
       <div className="px-5 pt-4 pb-3 bg-white">
-        <h1 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>History</h1>
+        <h1 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>
+          {dogeMode ? 'Sniff Log 🐾' : 'History'}
+        </h1>
         <p className="text-xs mt-0.5" style={{ color: '#888' }}>
-          {items.length} scan{items.length !== 1 ? 's' : ''} total
+          {items.length} {dogeMode ? 'sniff' : 'scan'}{items.length !== 1 ? 's' : ''} {dogeMode ? 'logged' : 'total'}
         </p>
       </div>
 
@@ -292,7 +296,7 @@ export default function HistoryPage() {
                 color:           filter === f ? 'white'   : '#888888',
               }}
             >
-              {f === 'all' ? 'All Scans' : 'Saved'}
+              {f === 'all' ? (dogeMode ? 'All Sniffs 🐕' : 'All Scans') : 'Saved'}
             </button>
           ))}
         </div>
@@ -326,12 +330,16 @@ export default function HistoryPage() {
               <ScanLine size={24} style={{ color: '#CCCCCC' }} />
             </div>
             <p className="text-sm font-semibold" style={{ color: '#888' }}>
-              {filter === 'saved' ? 'No saved scans' : catFilter !== 'all' ? 'No scans in this category' : 'No scans yet'}
+              {filter === 'saved'
+                ? (dogeMode ? 'No buried sniffs' : 'No saved scans')
+                : catFilter !== 'all'
+                  ? (dogeMode ? 'No sniffs in this category' : 'No scans in this category')
+                  : (dogeMode ? 'No sniffs yet' : 'No scans yet')}
             </p>
             <p className="text-xs text-center" style={{ color: '#BBBBBB', maxWidth: 200 }}>
               {filter === 'saved'
-                ? 'Tap "Save to App" after scanning to bookmark a scan.'
-                : 'Scan a document to see it here.'}
+                ? (dogeMode ? 'Bury a result after sniffing to save it.' : 'Tap "Save to App" after scanning to bookmark a scan.')
+                : (dogeMode ? 'Sniff a document to see it here.' : 'Scan a document to see it here.')}
             </p>
           </div>
         ) : (

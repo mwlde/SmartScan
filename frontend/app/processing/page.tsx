@@ -6,11 +6,19 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react'
 import { scanStore } from '@/lib/scanStore'
 import { addHistoryItem, createThumbnail } from '@/lib/history'
+import { useDogeMode } from '@/lib/useDogeMode'
 
 type Status = 'pending' | 'active' | 'done' | 'error'
 
 const STEPS = ['Enhance', 'Detect', 'Warp', 'Classify'] as const
 type StepName = (typeof STEPS)[number]
+
+const DOGE_LABELS: Record<StepName, string> = {
+  Enhance: 'Sniff',
+  Detect: 'Fetch',
+  Warp: 'Warp',
+  Classify: 'Woof!',
+}
 
 const SCAN_API = process.env.NEXT_PUBLIC_SCAN_API
 const CLASSIFY_API = process.env.NEXT_PUBLIC_CLASSIFY_API
@@ -21,6 +29,7 @@ function delay(ms: number) {
 
 export default function ProcessingPage() {
   const router = useRouter()
+  const dogeMode = useDogeMode()
   const hasRun = useRef(false)
 
   const [thumb, setThumb] = useState<string | null>(null)
@@ -150,6 +159,32 @@ export default function ProcessingPage() {
 
       {/* Step pills — matches Figma exactly */}
       <div className="px-6 pb-5">
+        {/* 🐕 → 🦴 dog track (doge mode only) */}
+        {dogeMode && (
+          <div className="relative flex items-center mb-3" style={{ height: 28 }}>
+            <div
+              className="absolute rounded-full"
+              style={{ left: 20, right: 20, top: '50%', transform: 'translateY(-50%)', height: 2, backgroundColor: '#E0E0E0' }}
+            />
+            <span
+              className="absolute text-xl leading-none transition-all duration-700"
+              style={{
+                left: `calc(${(doneCount / STEPS.length) * 80}% + 4px)`,
+                top: '50%',
+                transform: 'translateY(-50%)',
+              }}
+            >
+              🐕
+            </span>
+            <span
+              className="absolute text-base leading-none"
+              style={{ right: 0, top: '50%', transform: 'translateY(-50%)' }}
+            >
+              🦴
+            </span>
+          </div>
+        )}
+
         <div className="flex gap-2 justify-between">
           {STEPS.map((step, i) => {
             const done = statuses[step] === 'done'
@@ -172,7 +207,7 @@ export default function ProcessingPage() {
                 )}
                 {done && <CheckCircle2 size={11} />}
                 {err && <AlertTriangle size={11} />}
-                <span>{step}</span>
+                <span>{dogeMode ? DOGE_LABELS[step] : step}</span>
               </div>
             )
           })}
@@ -192,7 +227,9 @@ export default function ProcessingPage() {
       {/* Elapsed timer */}
       <div className="pb-8 flex justify-center">
         <span className="text-xs font-mono" style={{ color: '#BBBBBB' }}>
-          {elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(2)}s`} elapsed
+          {dogeMode
+            ? '…sniffing'
+            : `${elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(2)}s`} elapsed`}
         </span>
       </div>
 
