@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Bell,
@@ -9,12 +10,16 @@ import {
   HardDrive,
   Info,
   Lock,
+  LogIn,
+  LogOut,
   Shield,
   Sliders,
   UserCircle2,
 } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { getHistory, clearHistory } from '@/lib/history'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/useAuth'
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
@@ -209,9 +214,14 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
+            version: 'v0.11',
+            title: 'Classification Feedback',
+            current: true,
+            body: 'Added a feedback prompt on the Results screen asking whether the classification was correct. Users can confirm with "Yes" or select the correct label from the four classes. Responses are stored locally under ss_feedback_log for future model improvement. Includes a "Don\'t ask me again" opt-out option.',
+          },
+          {
             version: 'v0.10',
             title: 'Folder System',
-            current: true,
             body: 'Added a folder-based organisation system to the Saved screen. Create named folders, assign scans to them from the Results screen, and browse folder contents. Folder assignment step added to the Save sheet after saving to app.',
           },
           {
@@ -594,11 +604,20 @@ function Toggle({ icon, label, enabled, onToggle }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [notificationsOn, setNotificationsOn] = useState(true)
   const [storageUsed, setStorageUsed] = useState('—')
   const [scanQuality, setScanQuality] = useState<Quality>('medium')
   const [dogeMode, setDogeMode] = useState(false)
   const [selected, setSelected] = useState<Section | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    await supabase.auth.signOut()
+    setSigningOut(false)
+  }
 
   useEffect(() => {
     setStorageUsed(getStorageUsed())
@@ -664,15 +683,43 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto pb-4">
         {/* Account card */}
         <div className="mx-4 mb-4 rounded-2xl p-4 flex items-center gap-4 bg-white">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F5F5F5' }}>
-            <UserCircle2 size={32} style={{ color: '#BBBBBB' }} strokeWidth={1.5} />
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: user ? '#EBF3FC' : '#F5F5F5' }}
+          >
+            <UserCircle2 size={32} style={{ color: user ? '#2D7DD2' : '#BBBBBB' }} strokeWidth={1.5} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm truncate" style={{ color: '#1A1A1A' }}>Guest User</p>
-            <p className="text-xs mt-0.5" style={{ color: '#888' }}>Not signed in</p>
-            <button className="mt-1.5 text-xs font-semibold" style={{ color: '#2D7DD2' }}>
-              Sign in for full access →
-            </button>
+            {authLoading ? (
+              <div className="h-3 w-24 rounded-full animate-pulse" style={{ backgroundColor: '#E8E8E8' }} />
+            ) : user ? (
+              <>
+                <p className="font-bold text-sm truncate" style={{ color: '#1A1A1A' }}>{user.email}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#3BB273' }}>Signed in</p>
+                <button
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="mt-1.5 text-xs font-semibold flex items-center gap-1"
+                  style={{ color: '#D4183D' }}
+                >
+                  <LogOut size={11} />
+                  {signingOut ? 'Signing out…' : 'Log Out'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-sm" style={{ color: '#1A1A1A' }}>Guest</p>
+                <p className="text-xs mt-0.5" style={{ color: '#888' }}>Browsing as guest</p>
+                <button
+                  onClick={() => router.push('/auth')}
+                  className="mt-1.5 text-xs font-semibold flex items-center gap-1"
+                  style={{ color: '#2D7DD2' }}
+                >
+                  <LogIn size={11} />
+                  Log In / Sign Up
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -710,22 +757,25 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.10" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.11" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
 
-        {/* Sign in CTA */}
+        {/* Sign in CTA — only shown when guest */}
         <div className="px-4 pt-1 pb-6">
-          <button
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-sm text-white transition-all active:scale-95"
-            style={{ backgroundColor: '#2D7DD2' }}
-          >
-            <UserCircle2 size={18} />
-            Sign In / Create Account
-          </button>
-          <p className="text-center text-xs mt-3" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.10 · CSCI435 Demo
+          {!user && !authLoading && (
+            <button
+              onClick={() => router.push('/auth')}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-sm text-white transition-all active:scale-95 mb-3"
+              style={{ backgroundColor: '#2D7DD2' }}
+            >
+              <LogIn size={18} />
+              Log In / Create Account
+            </button>
+          )}
+          <p className="text-center text-xs" style={{ color: '#BBBBBB' }}>
+            SmartScan v0.11 · CSCI435 Demo
           </p>
         </div>
       </div>

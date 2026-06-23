@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Bookmark, BookmarkCheck, Download, FolderOpen, RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
-import { toggleSaved, getHistory, createThumbnail } from '@/lib/history'
+import { toggleSaved, getHistory } from '@/lib/history'
 import { getFolders, addItemToFolder, type Folder } from '@/lib/folders'
 import { useDogeMode } from '@/lib/useDogeMode'
-import { isFeedbackOptedOut, setFeedbackOptOut, addFeedbackEntry } from '@/lib/feedback'
+import { isFeedbackOptedOut, setFeedbackOptOut, submitFeedback } from '@/lib/feedback'
 
 const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   handwritten:   { bg: '#FEF3E2', text: '#F5A623' },
@@ -211,7 +211,6 @@ export default function ResultsPage() {
         {/* Feedback prompt */}
         {classify && showFeedback && (
           <FeedbackCard
-            scanB64={scan.scan}
             predictedLabel={classify.label}
             confidence={classify.confidence}
             onDone={() => setShowFeedback(false)}
@@ -385,9 +384,8 @@ const CLASSES = [
 ]
 
 function FeedbackCard({
-  scanB64, predictedLabel, confidence, onDone,
+  predictedLabel, confidence, onDone,
 }: {
-  scanB64: string
   predictedLabel: string
   confidence: number
   onDone: () => void
@@ -400,10 +398,8 @@ function FeedbackCard({
   async function submit(correctLabel: string | null) {
     setBusy(true)
     if (optOut) setFeedbackOptOut()
-    const image_thumbnail = await createThumbnail(scanB64)
-    addFeedbackEntry({ timestamp: Date.now(), predicted_label: predictedLabel, confidence, correct_label: correctLabel, image_thumbnail })
+    await submitFeedback(predictedLabel, confidence, correctLabel)
     setPhase('done')
-    // auto-dismiss after a moment
     setTimeout(onDone, 2000)
   }
 
