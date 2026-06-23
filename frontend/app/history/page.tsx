@@ -2,7 +2,7 @@
 
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, Download, FileText, ScanLine, Trash2 } from 'lucide-react'
+import { ArrowLeft, Bookmark, BookmarkCheck, ChevronRight, Download, FileText, Maximize2, ScanLine, Trash2, X } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { clearHistory, deleteItem, getHistory, toggleSaved, type HistoryItem } from '@/lib/history'
 import { useDogeMode } from '@/lib/useDogeMode'
@@ -109,6 +109,7 @@ function DetailView({
   onToast: (msg: string) => void
 }) {
   const style = labelStyle(item.label)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   return (
     <div className="flex flex-col bg-white" style={{ minHeight: '100dvh' }}>
       <div className="h-11 flex-shrink-0" />
@@ -140,13 +141,22 @@ function DetailView({
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-4">
         {/* Thumbnail */}
         <div
-          className="w-full rounded-2xl overflow-hidden flex items-center justify-center"
+          className="relative w-full rounded-2xl overflow-hidden flex items-center justify-center"
           style={{ backgroundColor: '#F8F8F8', aspectRatio: '4/3' }}
         >
           {item.thumbnail ? (
             <img src={item.thumbnail} alt="Scan" className="w-full h-full object-contain" />
           ) : (
             <ScanLine size={36} style={{ color: '#CCCCCC' }} />
+          )}
+          {item.thumbnail && (
+            <button
+              onClick={() => setLightboxOpen(true)}
+              className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+            >
+              <Maximize2 size={16} color="white" />
+            </button>
           )}
         </div>
 
@@ -209,6 +219,50 @@ function DetailView({
       </div>
 
       <BottomNav />
+
+      {/* Fullscreen lightbox */}
+      {lightboxOpen && item.thumbnail && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col"
+          style={{ backgroundColor: '#000' }}
+          onClick={() => setLightboxOpen(false)}
+        >
+          {/* Close button */}
+          <div className="absolute top-0 right-0 p-5 pt-14 z-10">
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+            >
+              <X size={18} color="white" />
+            </button>
+          </div>
+
+          {/* Image fills the full viewport, letterboxed with contain */}
+          <img
+            src={item.thumbnail}
+            alt="Scan"
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+            }}
+          />
+
+          {/* Label at bottom */}
+          <div
+            className="absolute bottom-0 left-0 right-0 pb-10 flex justify-center"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)', paddingTop: 40 }}
+          >
+            <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>
+              {formatLabel(item.label)} · {formatDate(item.timestamp)}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

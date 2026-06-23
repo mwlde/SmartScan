@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, Check, FolderOpen, Image as ImageIcon, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Camera, Check, Download, FolderOpen, Image as ImageIcon, Maximize2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { getHistory, type HistoryItem } from '@/lib/history'
 import {
@@ -343,6 +343,7 @@ function FolderDetailView({
   const fileRef = useRef<HTMLInputElement>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showAddSheet, setShowAddSheet] = useState(false)
+  const [lightboxItem, setLightboxItem] = useState<HistoryItem | null>(null)
 
   const isSystem = folder.id === ALL_SCANS_ID
   const items = allHistory.filter(h => folder.itemIds.includes(h.id))
@@ -444,7 +445,7 @@ function FolderDetailView({
               style={{ borderColor: '#2D7DD2', color: '#2D7DD2' }}
             >
               <Upload size={17} />
-              {dogeMode ? 'Fetch Image 🎾' : 'Upload Image'}
+              {dogeMode ? 'Fetch Image 🎾' : 'Upload Image to Scan'}
             </button>
             {!isSystem && (
               <button
@@ -466,16 +467,28 @@ function FolderDetailView({
               className="flex items-center gap-3 p-3.5 rounded-2xl"
               style={{ backgroundColor: '#FAFAFA', border: '1px solid #F0F0F0' }}
             >
-              <div
-                className="flex-shrink-0 w-12 h-14 rounded-xl overflow-hidden flex items-center justify-center"
+              {/* Thumbnail — tap to open lightbox */}
+              <button
+                onClick={() => item.thumbnail && setLightboxItem(item)}
+                className="relative flex-shrink-0 w-14 h-16 rounded-xl overflow-hidden flex items-center justify-center"
                 style={{ backgroundColor: '#F0F0F0' }}
               >
                 {item.thumbnail ? (
-                  <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                  <>
+                    <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                    {/* Always-visible expand badge */}
+                    <div
+                      className="absolute bottom-1 right-1 w-5 h-5 rounded-md flex items-center justify-center"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                    >
+                      <Maximize2 size={9} color="white" />
+                    </div>
+                  </>
                 ) : (
                   <ImageIcon size={18} style={{ color: '#CCCCCC' }} />
                 )}
-              </div>
+              </button>
+
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate" style={{ color: '#1A1A1A' }}>
                   {item.label.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
@@ -484,6 +497,25 @@ function FolderDetailView({
                   {new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
+
+              {/* Save to device */}
+              {item.thumbnail && (
+                <button
+                  onClick={() => {
+                    const a = document.createElement('a')
+                    a.href = item.thumbnail
+                    a.download = `smartscan_${item.label}_${item.timestamp}.jpg`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                  }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#F5F5F5' }}
+                >
+                  <Download size={14} style={{ color: '#555' }} />
+                </button>
+              )}
+
               {!isSystem && (
                 <button
                   onClick={() => onRemoveItem(item.id)}
@@ -495,6 +527,43 @@ function FolderDetailView({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxItem?.thumbnail && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col"
+          style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}
+          onClick={() => setLightboxItem(null)}
+        >
+          {/* Close button */}
+          <div className="flex justify-end p-5 pt-14 flex-shrink-0">
+            <button
+              onClick={() => setLightboxItem(null)}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
+            >
+              <X size={18} color="white" />
+            </button>
+          </div>
+
+          {/* Image */}
+          <div className="flex-1 flex items-center justify-center px-4 pb-12" onClick={e => e.stopPropagation()}>
+            <img
+              src={lightboxItem.thumbnail}
+              alt=""
+              className="max-w-full max-h-full rounded-2xl"
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
+
+          {/* Label */}
+          <div className="pb-10 flex justify-center flex-shrink-0">
+            <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              {lightboxItem.label.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+            </p>
+          </div>
         </div>
       )}
 
