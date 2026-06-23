@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Bookmark, BookmarkCheck, Download, FolderOpen, RotateCcw, Save, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { scanStore, type ScanResult, type ClassifyResult } from '@/lib/scanStore'
-import { toggleSaved, getHistory } from '@/lib/history'
+import { toggleSaved, getHistory, createThumbnail } from '@/lib/history'
 import { getFolders, addItemToFolder, type Folder } from '@/lib/folders'
 import { useDogeMode } from '@/lib/useDogeMode'
+import { isFeedbackOptedOut, setFeedbackOptOut, addFeedbackEntry } from '@/lib/feedback'
 
 const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
   handwritten:   { bg: '#FEF3E2', text: '#F5A623' },
@@ -43,6 +44,7 @@ export default function ResultsPage() {
   const [folderStep, setFolderStep] = useState(false)
   const [folders, setFolders] = useState<Folder[]>([])
   const [toast, setToast] = useState<string | null>(null)
+  const [showFeedback, setShowFeedback] = useState(false)
   const [activeSlide, setActiveSlide] = useState(0)
   const carouselRef = useRef<HTMLDivElement>(null)
 
@@ -65,6 +67,7 @@ export default function ResultsPage() {
       setIsSaved(item?.saved ?? false)
     }
     setFolders(getFolders())
+    if (!isFeedbackOptedOut()) setShowFeedback(true)
   }, [router])
 
   if (!scan) {
@@ -204,6 +207,16 @@ export default function ResultsPage() {
             </div>
           ))}
         </div>
+
+        {/* Feedback prompt */}
+        {classify && showFeedback && (
+          <FeedbackCard
+            scanB64={scan.scan}
+            predictedLabel={classify.label}
+            confidence={classify.confidence}
+            onDone={() => setShowFeedback(false)}
+          />
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pb-2">
@@ -361,6 +374,149 @@ export default function ResultsPage() {
     </div>
   )
 }
+
+// ── Feedback card ─────────────────────────────────────────────────────────────
+
+const CLASSES = [
+  { key: 'handwritten',  label: 'Handwritten'  },
+  { key: 'invoice',      label: 'Invoice'       },
+  { key: 'form',         label: 'Form'          },
+  { key: 'printed_page', label: 'Printed Page'  },
+]
+
+function FeedbackCard({
+  scanB64, predictedLabel, confidence, onDone,
+}: {
+  scanB64: string
+  predictedLabel: string
+  confidence: number
+  onDone: () => void
+}) {
+  const [phase, setPhase] = useState<'asking' | 'correcting' | 'done'>('asking')
+  const [correction, setCorrection] = useState('')
+  const [optOut, setOptOut] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(correctLabel: string | null) {
+    setBusy(true)
+    if (optOut) setFeedbackOptOut()
+    const image_thumbnail = await createThumbnail(scanB64)
+    addFeedbackEntry({ timestamp: Date.now(), predicted_label: predictedLabel, confidence, correct_label: correctLabel, image_thumbnail })
+    setPhase('done')
+    // auto-dismiss after a moment
+    setTimeout(onDone, 2000)
+  }
+
+  if (phase === 'done') {
+    return (
+      <div className="flex items-center gap-2.5 px-4 py-3.5 rounded-2xl" style={{ backgroundColor: '#E8F4EC' }}>
+        <CheckCircle2 size={16} style={{ color: '#3BB273', flexShrink: 0 }} />
+        <p className="text-sm font-semibold" style={{ color: '#3BB273' }}>Thanks for the feedback!</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl p-4 bg-white">
+      {phase === 'asking' ? (
+        <>
+          <p className="text-sm font-semibold mb-3" style={{ color: '#1A1A1A' }}>
+            Was this classification correct?
+          </p>
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => submit(null)}
+              disabled={busy}
+              className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white transition-all active:scale-95"
+              style={{ backgroundColor: '#3BB273' }}
+            >
+              Yes ✓
+            </button>
+            <button
+              onClick={() => setPhase('correcting')}
+              disabled={busy}
+              className="flex-1 py-2.5 rounded-full text-sm font-semibold border-2 transition-all active:scale-95"
+              style={{ borderColor: '#E0E0E0', color: '#888' }}
+            >
+              No
+            </button>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={optOut}
+              onChange={e => setOptOut(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[#2D7DD2]"
+            />
+            <span className="text-xs" style={{ color: '#BBBBBB' }}>Don't ask me again</span>
+          </label>
+        </>
+      ) : (
+        <>
+          <p className="text-sm font-semibold mb-0.5" style={{ color: '#1A1A1A' }}>
+            What should it be?
+          </p>
+          <p className="text-xs mb-3" style={{ color: '#888' }}>
+            Select the correct label (current prediction is disabled)
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {CLASSES.map(({ key, label }) => {
+              const isPredicted = key === predictedLabel
+              const isSelected  = key === correction
+              return (
+                <button
+                  key={key}
+                  onClick={() => !isPredicted && setCorrection(key)}
+                  disabled={isPredicted}
+                  className="py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+                  style={{
+                    backgroundColor: isSelected ? '#2D7DD2' : '#F5F5F5',
+                    color: isPredicted ? '#CCCCCC' : isSelected ? 'white' : '#1A1A1A',
+                    border: `1.5px solid ${isSelected ? '#2D7DD2' : '#E8E8E8'}`,
+                    cursor: isPredicted ? 'default' : 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none mb-3">
+            <input
+              type="checkbox"
+              checked={optOut}
+              onChange={e => setOptOut(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[#2D7DD2]"
+            />
+            <span className="text-xs" style={{ color: '#BBBBBB' }}>Don't ask me again</span>
+          </label>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setPhase('asking'); setCorrection('') }}
+              className="px-4 py-2.5 rounded-full text-sm font-semibold border-2"
+              style={{ borderColor: '#E0E0E0', color: '#888' }}
+            >
+              Back
+            </button>
+            <button
+              onClick={() => correction && submit(correction)}
+              disabled={!correction || busy}
+              className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white transition-all active:scale-95"
+              style={{ backgroundColor: correction && !busy ? '#2D7DD2' : '#BBBBBB' }}
+            >
+              Submit
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
 
 function ToastBanner({ message, onDone }: { message: string; onDone: () => void }) {
   const onDoneRef = useRef(onDone)
