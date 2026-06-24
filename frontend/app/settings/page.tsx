@@ -214,10 +214,15 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
+            version: 'v0.12',
+            title: 'Account & DB Hardening',
+            current: true,
+            body: 'Added optional Supabase Auth (email + password). Users can log in or sign up from Settings — login is never required, the app works fully as a guest. When signed in, user_id is attached to feedback submissions. Added CHECK constraints on the feedback table restricting predicted_label and correct_label to the four valid classes.',
+          },
+          {
             version: 'v0.11',
             title: 'Classification Feedback',
-            current: true,
-            body: 'Added a feedback prompt on the Results screen asking whether the classification was correct. Users can confirm with "Yes" or select the correct label from the four classes. Responses are stored locally under ss_feedback_log for future model improvement. Includes a "Don\'t ask me again" opt-out option.',
+            body: 'Added a feedback prompt on the Results screen asking whether the classification was correct. Users can confirm with "Yes" or select the correct label from the four classes. Responses are stored locally under ss_feedback_log and synced to Supabase for future model improvement. Includes a "Don\'t ask me again" opt-out option.',
           },
           {
             version: 'v0.10',
@@ -757,7 +762,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.11" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.12" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -775,7 +780,7 @@ export default function SettingsPage() {
             </button>
           )}
           <p className="text-center text-xs" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.11 · CSCI435 Demo
+            SmartScan v0.12 · CSCI435 Demo
           </p>
         </div>
       </div>

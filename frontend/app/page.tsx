@@ -1,6 +1,5 @@
 'use client'
 
-
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Upload } from 'lucide-react'
@@ -13,7 +12,6 @@ export default function HomePage() {
 
   useEffect(() => {
     setDogeMode(localStorage.getItem('ss_doge_mode') === 'true')
-    // listen for changes from settings without a full page reload
     function onStorage(e: StorageEvent) {
       if (e.key === 'ss_doge_mode') setDogeMode(e.newValue === 'true')
     }
