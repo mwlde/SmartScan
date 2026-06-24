@@ -1,4 +1,3 @@
-# For Streamlit
 import time
 from dataclasses import dataclass, field
 
@@ -8,7 +7,6 @@ from . import preprocessing
 from . import document_detection
 from . import perspective
 from . import segmentation
-from .deskew import deskew
 
 
 @dataclass
@@ -18,8 +16,7 @@ class ScanResult:
     detected_overlay: np.ndarray      # original with the page quad drawn
     corners: np.ndarray               # (4,2) corners used
     document_found: bool              # False => fell back to full frame
-    warped: np.ndarray                # perspective-corrected + deskewed page (color)
-    skew_angle: float                 # residual skew angle corrected (degrees), 0.0 if none
+    warped: np.ndarray                # perspective-corrected page (color)
     scan: np.ndarray                  # binarized "scanned look"
     regions: list                     # list of (x,y,w,h) on the scan
     region_overlay: np.ndarray        # scan with region boxes drawn
@@ -31,7 +28,6 @@ class ScanResult:
 
 
 def scan_document(image, work_height=500):
-    # Run the full processing branch on a BGR image. Returns ScanResult
     t = {}
 
     t0 = time.perf_counter()
@@ -46,10 +42,6 @@ def scan_document(image, work_height=500):
     t0 = time.perf_counter()
     warped = perspective.four_point_transform(image, corners)
     t["warp"] = (time.perf_counter() - t0) * 1000
-
-    t0 = time.perf_counter()
-    warped, skew_angle = deskew(warped)
-    t["deskew"] = (time.perf_counter() - t0) * 1000
 
     t0 = time.perf_counter()
     scan = preprocessing.to_scan(warped)
@@ -67,7 +59,6 @@ def scan_document(image, work_height=500):
         corners=corners,
         document_found=found,
         warped=warped,
-        skew_angle=skew_angle,
         scan=scan,
         regions=regions,
         region_overlay=region_overlay,

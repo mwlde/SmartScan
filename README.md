@@ -1,14 +1,14 @@
 # SmartScan
 
-A mobile document scanner that detects, deskews, and classifies document images using computer vision and deep learning. Built for CSCI435 at the University of Wollongong in Dubai.
+A mobile document scanner that detects, corrects perspective, and classifies document images using computer vision and deep learning. Built for CSCI435 at the University of Wollongong in Dubai.
 
-**Current version: v0.13**
+**Current version: v0.14**
 
 ---
 
 ## What it does
 
-1. **Scan** — detects the document boundary in a photo using Canny edge detection + Hough transforms, applies a perspective transform and deskew correction, binarises the result into a clean scan, and identifies text regions.
+1. **Scan** — detects the document boundary in a photo using a five-pass Canny/HSV/Otsu cascade, applies a perspective transform, binarises the result into a clean scan, and identifies text regions.
 2. **Classify** — runs the corrected image through a MobileNetV2 model to label it as one of: `handwritten`, `invoice`, `form`, or `printed_page`.
 3. **Organise** — stores scan history locally, lets users save and folder-organise results, filter by category, and download scans to device.
 4. **Feedback** — after each classification, prompts the user to confirm or correct the predicted label. Responses are stored in Supabase (with `user_id` when signed in, anonymous otherwise) and mirrored to localStorage as a backup.
@@ -23,7 +23,6 @@ smartscan/
 │   ├── src/
 │   │   ├── document_detection.py
 │   │   ├── perspective.py
-│   │   ├── deskew.py
 │   │   ├── preprocessing.py
 │   │   ├── segmentation.py
 │   │   └── scan_pipeline.py
@@ -163,6 +162,7 @@ The training pipeline uses MobileNetV2 with augmentation: random flips, rotation
 
 | Version | Feature |
 |---------|---------|
+| v0.14 | Removed deskew step from CV pipeline — perspective correction already produces near-straight output |
 | v0.13 | Upload security hardening on /scan and /classify: MIME + magic-byte validation, 10 MB size limit, dimension cap, generic error responses |
 | v0.12 | Optional Supabase Auth (email + password, guest-first); CHECK constraints on feedback label columns |
 | v0.11 | Classification feedback prompt (Supabase + localStorage dual-write) |

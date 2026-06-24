@@ -20,7 +20,7 @@ const LABEL_STYLES: Record<string, { bg: string; text: string }> = {
 
 const SLIDES = [
   { key: 'scan',             label: 'Final',     sub: 'Binarized scan'     },
-  { key: 'warped',           label: 'Deskewed',  sub: 'Cropped & levelled' },
+  { key: 'warped',           label: 'Warped',    sub: 'Cropped & levelled' },
   { key: 'original',         label: 'Original',  sub: 'Input image'        },
   { key: 'detected_overlay', label: 'Detected',  sub: 'Document edge'      },
   { key: 'region_overlay',   label: 'Regions',   sub: 'Text segments'      },

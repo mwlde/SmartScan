@@ -214,9 +214,14 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
+            version: 'v0.14',
+            title: 'Deskew Removal',
+            current: true,
+            body: 'Removed the residual deskew step from the CV pipeline. The existing five-pass detection and perspective correction already produce near-straight output, making the additional Hough Transform pass unnecessary. Simplifies the pipeline and eliminates a source of potential over-correction artefacts.',
+          },
+          {
             version: 'v0.13',
             title: 'Upload Security Hardening',
-            current: true,
             body: 'Hardened the /scan and /classify endpoints against malicious uploads. Validates MIME type from both the Content-Type header and magic bytes, enforces a 10 MB file size limit, rejects images with dimensions exceeding 10,000 px per side (prevents decompression bombs), and wraps all processing logic in try/except that returns a generic error without leaking stack traces.',
           },
           {
@@ -246,8 +251,8 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
           },
           {
             version: 'v0.7',
-            title: 'Deskewing',
-            body: 'Added a residual deskew step using Canny + Hough Transform, applied after perspective correction to straighten small leftover tilt in the final scanned output.',
+            title: 'Deskewing (removed v0.14)',
+            body: 'Added a residual deskew step using Canny + Hough Transform. Removed in v0.14 after testing showed the five-pass detection + perspective correction already produced near-straight output.',
           },
           {
             version: 'v0.6',
@@ -767,7 +772,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.13" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.14" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -785,7 +790,7 @@ export default function SettingsPage() {
             </button>
           )}
           <p className="text-center text-xs" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.13, CSCI435 Demo
+            SmartScan v0.14, CSCI435 Demo
           </p>
         </div>
       </div>

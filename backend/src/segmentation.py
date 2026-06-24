@@ -7,7 +7,7 @@ from .utils import to_gray
 
 
 def segment_regions(image, min_area_frac=0.0008, merge_kernel=(25, 5)):
-    """Find content regions on a (preferably deskewed) document image.
+    """Find content regions on a perspective-corrected document image.
 
     What I did:
       1. binarize (text -> white on black) with adaptive threshold
