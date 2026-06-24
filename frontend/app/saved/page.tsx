@@ -40,7 +40,7 @@ function AllScansCard({
             {dogeMode ? 'All Sniffs 🐾' : 'All Scans'}
           </p>
           <p className="text-xs" style={{ color: '#888' }}>
-            {items.length} {dogeMode ? 'sniff' : 'scan'}{items.length !== 1 ? 's' : ''} · default
+            {items.length} {dogeMode ? 'sniff' : 'scan'}{items.length !== 1 ? 's' : ''}, default
           </p>
         </div>
         <span
@@ -382,7 +382,7 @@ function FolderDetailView({
           <h2 className="text-lg font-bold truncate" style={{ color: '#1A1A1A' }}>{folder.name}</h2>
           <p className="text-xs" style={{ color: '#888' }}>
             {items.length} {dogeMode ? 'sniff' : 'item'}{items.length !== 1 ? 's' : ''}
-            {isSystem && ' · default'}
+            {isSystem && ', default'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -716,8 +716,8 @@ export default function SavedPage() {
           </h1>
           <p className="text-xs mt-0.5" style={{ color: '#888' }}>
             {dogeMode
-              ? `${folders.length} kennel${folders.length !== 1 ? 's' : ''} · ${totalScans} buried`
-              : `${folders.length} folder${folders.length !== 1 ? 's' : ''} · ${totalScans} scan${totalScans !== 1 ? 's' : ''}`}
+              ? `${folders.length} kennel${folders.length !== 1 ? 's' : ''}, ${totalScans} buried`
+              : `${folders.length} folder${folders.length !== 1 ? 's' : ''}, ${totalScans} scan${totalScans !== 1 ? 's' : ''}`}
           </p>
         </div>
         <button

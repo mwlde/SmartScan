@@ -258,7 +258,7 @@ function DetailView({
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)', paddingTop: 40 }}
           >
             <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>
-              {formatLabel(item.label)} · {formatDate(item.timestamp)}
+              {formatLabel(item.label)}, {formatDate(item.timestamp)}
             </p>
           </div>
         </div>

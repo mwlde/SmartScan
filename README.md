@@ -2,7 +2,7 @@
 
 A mobile document scanner that detects, deskews, and classifies document images using computer vision and deep learning. Built for CSCI435 at the University of Wollongong in Dubai.
 
-**Current version: v0.12**
+**Current version: v0.13**
 
 ---
 
@@ -163,6 +163,7 @@ The training pipeline uses MobileNetV2 with augmentation: random flips, rotation
 
 | Version | Feature |
 |---------|---------|
+| v0.13 | Upload security hardening on /scan and /classify: MIME + magic-byte validation, 10 MB size limit, dimension cap, generic error responses |
 | v0.12 | Optional Supabase Auth (email + password, guest-first); CHECK constraints on feedback label columns |
 | v0.11 | Classification feedback prompt (Supabase + localStorage dual-write) |
 | v0.10 | Folder system in Saved screen, All Scans default folder |

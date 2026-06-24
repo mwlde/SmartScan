@@ -81,7 +81,7 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
       <div className="flex flex-col gap-5 text-sm" style={{ color: '#1A1A1A' }}>
         <div>
           <p className="font-bold text-base">SmartScan Privacy Policy</p>
-          <p className="text-xs mt-0.5" style={{ color: '#888' }}>Demo Version · Last updated: June 2026</p>
+          <p className="text-xs mt-0.5" style={{ color: '#888' }}>Demo Version, Last updated: June 2026</p>
         </div>
 
         <p style={{ color: '#444', lineHeight: 1.65 }}>
@@ -136,7 +136,7 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
       <div className="flex flex-col gap-5 text-sm" style={{ color: '#1A1A1A' }}>
         <div>
           <p className="font-bold text-base">SmartScan Terms of Service</p>
-          <p className="text-xs mt-0.5" style={{ color: '#888' }}>Demo Version · Last updated: June 2026</p>
+          <p className="text-xs mt-0.5" style={{ color: '#888' }}>Demo Version, Last updated: June 2026</p>
         </div>
 
         <p style={{ color: '#444', lineHeight: 1.65 }}>
@@ -209,14 +209,19 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
       <div className="flex flex-col gap-1 text-sm" style={{ color: '#1A1A1A' }}>
         <div className="mb-4">
           <p className="font-bold text-base">SmartScan</p>
-          <p className="text-xs mt-0.5" style={{ color: '#888' }}>CSCI435 · University of Wollongong in Dubai</p>
+          <p className="text-xs mt-0.5" style={{ color: '#888' }}>CSCI435, University of Wollongong in Dubai</p>
         </div>
 
         {([
           {
+            version: 'v0.13',
+            title: 'Upload Security Hardening',
+            current: true,
+            body: 'Hardened the /scan and /classify endpoints against malicious uploads. Validates MIME type from both the Content-Type header and magic bytes, enforces a 10 MB file size limit, rejects images with dimensions exceeding 10,000 px per side (prevents decompression bombs), and wraps all processing logic in try/except that returns a generic error without leaking stack traces.',
+          },
+          {
             version: 'v0.12',
             title: 'Account & DB Hardening',
-            current: true,
             body: 'Added optional Supabase Auth (email + password). Users can log in or sign up from Settings — login is never required, the app works fully as a guest. When signed in, user_id is attached to feedback submissions. Added CHECK constraints on the feedback table restricting predicted_label and correct_label to the four valid classes.',
           },
           {
@@ -350,8 +355,8 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
           {
             heading: 'Training Datasets',
             items: [
-              { name: 'OCR Dataset of Multi-type Documents', licence: 'MIT', note: 'senju14 · Kaggle' },
-              { name: 'Scanned Images Dataset for OCR and VLM finetuning', licence: 'MIT', note: 'suvroo · Kaggle' },
+              { name: 'OCR Dataset of Multi-type Documents', licence: 'MIT', note: 'senju14, Kaggle' },
+              { name: 'Scanned Images Dataset for OCR and VLM finetuning', licence: 'MIT', note: 'suvroo, Kaggle' },
             ],
           },
         ].map(({ heading, items }) => (
@@ -379,7 +384,7 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
         ))}
 
         <p className="text-xs p-3 rounded-xl" style={{ color: '#888', backgroundColor: '#F5F5F5', lineHeight: 1.6 }}>
-          Developed as part of CSCI435 — Computer Vision Algorithms and Systems ·
+          Developed as part of CSCI435 — Computer Vision Algorithms and Systems,
           University of Wollongong in Dubai
         </p>
       </div>
@@ -762,7 +767,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.12" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.13" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -780,7 +785,7 @@ export default function SettingsPage() {
             </button>
           )}
           <p className="text-center text-xs" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.12 · CSCI435 Demo
+            SmartScan v0.13, CSCI435 Demo
           </p>
         </div>
       </div>
