@@ -1,30 +1,13 @@
 #!/usr/bin/env python3
-"""
-export_corrections.py
-─────────────────────
-Admin script — run manually, not part of the live API.
-
-Downloads images from the feedback table where the user said the classifier
-was wrong, then organises them into per-label folders ready to use as
-additional training data for the next model version.
-
-Output structure:
-    corrections/
-        handwritten/   <feedback_id>.jpg
-        invoice/       <feedback_id>.jpg
-        form/          <feedback_id>.jpg
-        printed_page/  <feedback_id>.jpg
-
-Usage:
-    python export_corrections.py              # download for real
-    python export_corrections.py --dry-run    # preview only, no files written
-
-Required environment variables:
-    SUPABASE_URL          https://<project>.supabase.co
-    SUPABASE_SERVICE_KEY  service_role JWT  (NOT the anon key)
-
-No extra packages needed — uses stdlib urllib only.
-"""
+# admin script, run manually — not part of the live api
+# downloads misclassified imgs from supabase and sorts them into per-label folders for retraining
+#
+# output:  corrections/{label}/{feedback_id}.jpg
+# usage:   python export_corrections.py
+#          python export_corrections.py --dry-run
+#
+# needs:   SUPABASE_URL and SUPABASE_SERVICE_KEY in env or backend/.env
+#          (service role key, NOT the anon key — needs to bypass RLS)
 
 import argparse
 import collections
@@ -36,9 +19,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# ── Load .env from the backend root (parent of this script's directory) ──────
+# 𓆝 𓆟 𓆞 𓆟 𓆝 env + config
 
 def _load_dotenv() -> None:
+    # loads backend/.env so you dont have to export vars manually every time
     env_path = pathlib.Path(__file__).parent.parent / ".env"
     if not env_path.exists():
         return
@@ -49,19 +33,15 @@ def _load_dotenv() -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip()
-        if key and key not in os.environ:   # shell-set vars take priority
+        if key and key not in os.environ:   # shell-set vars take priority over .env
             os.environ[key] = value
 
 _load_dotenv()
 
-# ── Constants ────────────────────────────────────────────────────────────────
-
 VALID_LABELS = {"handwritten", "invoice", "form", "printed_page"}
 OUTPUT_ROOT  = pathlib.Path("corrections")
-PAGE_SIZE    = 1000   # Supabase max rows per request
+PAGE_SIZE    = 1000   # supabase max rows per request
 
-
-# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def require_env(name: str) -> str:
     value = os.environ.get(name, "").strip()
@@ -72,15 +52,11 @@ def require_env(name: str) -> str:
 
 
 def supabase_get(base_url: str, service_key: str, path: str, params: dict) -> list[dict]:
-    """
-    Paginated GET against the Supabase REST API.
-    Returns all rows across multiple pages.
-    """
+    """paginated GET from supabase REST api. loops until we get fewer than PAGE_SIZE rows back, meaning we hit the end."""
     headers = {
         "apikey":        service_key,
         "Authorization": f"Bearer {service_key}",
         "Accept":        "application/json",
-        # Ask Supabase to return the total count so we can sanity-check
         "Prefer":        "count=exact",
     }
     all_rows: list[dict] = []
@@ -114,31 +90,26 @@ def download_bytes(url: str, timeout: int = 30) -> bytes | None:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             return resp.read()
     except Exception as exc:
-        print(f"    Warning: download failed — {exc}")
+        print(f"    warning: download failed — {exc}")
         return None
 
-
-# ── Main ─────────────────────────────────────────────────────────────────────
+# 𓆝 𓆟 𓆞 𓆟 𓆝 main
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description=(
-            "Export misclassified scan images from the feedback table, "
-            "organised by true label for use as training data."
-        ),
+        description="download misclassified feedback imgs sorted by true label",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print what would be downloaded without writing any files.",
+        help="print what would be downloaded without writing any files",
     )
     args = parser.parse_args()
 
     supabase_url = require_env("SUPABASE_URL").rstrip("/")
     service_key  = require_env("SUPABASE_SERVICE_KEY")
 
-    # ── 1. Fetch rows ─────────────────────────────────────────────────────────
     print("Querying feedback table...")
     rows = supabase_get(
         supabase_url,
@@ -153,7 +124,6 @@ def main() -> None:
     )
     print(f"Found {len(rows)} correction row{'s' if len(rows) != 1 else ''}.\n")
 
-    # ── 2. Process each row ───────────────────────────────────────────────────
     per_class: collections.Counter[str] = collections.Counter()
     skipped         = 0
     download_errors = 0
@@ -163,13 +133,13 @@ def main() -> None:
         correct_label = row.get("correct_label")
         image_url     = row.get("image_url")
 
-        # Belt-and-suspenders: the query already filters these out but guard anyway
+        # query already filters but guard anyway
         if not correct_label or not image_url:
             skipped += 1
             continue
 
         if correct_label not in VALID_LABELS:
-            print(f"  Skip {feedback_id}: unrecognised label {correct_label!r}")
+            print(f"  skip {feedback_id}: unrecognised label {correct_label!r}")
             skipped += 1
             continue
 
@@ -190,7 +160,7 @@ def main() -> None:
         dest.write_bytes(data)
         per_class[correct_label] += 1
 
-    # ── 3. Summary ────────────────────────────────────────────────────────────
+    # summary
     divider    = "─" * 50
     mode_tag   = "[DRY RUN] " if args.dry_run else ""
     total_done = sum(per_class.values())

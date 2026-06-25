@@ -20,13 +20,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Upload guardrails ──────────────────────────────────────────────────────────
+# 𓆝 𓆟 𓆞 𓆟 𓆝 upload validation
 
 ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 MB
-MAX_DIMENSION  = 10_000             # px per side (prevents decompression bombs)
+MAX_DIMENSION  = 10_000             # px per side — stops decompression bombs (tiny file, huge decoded size)
 
-# Magic-byte signatures — more reliable than client-supplied Content-Type
+# magic bytes are more reliable than Content-Type which the client can fake
+# JPEG starts with ff d8 ff, PNG starts with the 8-byte PNG signature
 _MAGIC: list[tuple[bytes, str]] = [
     (b"\xff\xd8\xff",       "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
@@ -38,7 +39,7 @@ def _check_magic(data: bytes) -> bool:
 
 
 def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | None:
-    """Return a JSONResponse error if the upload is invalid, else None."""
+    # 3-layer check: size, mime type, actual bytes. returns error response or None
     if len(data) > MAX_FILE_BYTES:
         return JSONResponse(status_code=413, content={"error": "File too large. Maximum is 10 MB."})
     if content_type not in ALLOWED_CONTENT_TYPES:
@@ -47,8 +48,6 @@ def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | No
         return JSONResponse(status_code=415, content={"error": "File content does not match a recognised image format."})
     return None
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _encode_png(img: np.ndarray) -> str:
     _, buf = cv2.imencode(".png", img)
@@ -60,10 +59,9 @@ def health():
     return {"status": "ok"}
 
 
-_QUALITY_MAP = {"low": 350, "medium": 500, "high": 800}
+_QUALITY_MAP = {"low": 350, "medium": 500, "high": 800}  # maps to work_height for detection pass
 
-
-# ── /scan ──────────────────────────────────────────────────────────────────────
+# 𓆝 𓆟 𓆞 𓆟 𓆝 routes
 
 @app.post("/scan")
 async def scan(file: UploadFile = File(...), quality: str = Form("medium")):
@@ -85,7 +83,7 @@ async def scan(file: UploadFile = File(...), quality: str = Form("medium")):
             content={"error": f"Image dimensions too large. Maximum is {MAX_DIMENSION}×{MAX_DIMENSION} px."},
         )
 
-    # Resize to max 1000 px on longest side — keeps processing fast on limited CPU
+    # resize to max 1000px on longest side — large imgs hang on 0.1 CPU
     if max(h, w) > 1000:
         scale = 1000 / max(h, w)
         image = cv2.resize(image, (int(w * scale), int(h * scale)))

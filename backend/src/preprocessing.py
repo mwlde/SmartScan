@@ -6,7 +6,7 @@ from .utils import to_gray
 
 
 def enhance(image, denoise=True, clahe=True):
-  # Returns a BGR image the same size as the input.
+    # bilateral filter preserves edges while denoising, clahe on L-channel only (avoids color shift)
     out = image.copy()
 
     if denoise:
@@ -24,7 +24,7 @@ def enhance(image, denoise=True, clahe=True):
 
 def to_scan(image, block_size=25, c=15):
     gray = to_gray(image)
-    # mild blur to suppress paper texture / sensor noise before thresholding
+    # mild blur first to kill paper texture / sensor noise before thresholding
     gray = cv2.medianBlur(gray, 3)
     if block_size % 2 == 0:
         block_size += 1

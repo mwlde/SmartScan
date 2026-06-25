@@ -1,7 +1,6 @@
-// In-memory store for API results.
-// sessionStorage can't hold 6 base64 images (exceeds ~5 MB quota).
-// Module-level variables survive client-side navigation but are cleared on hard refresh —
-// the results page redirects to home if the store is empty, so that's safe.
+// in-memory store for api results
+// cant use sessionStorage — 6 base64 imgs would exceed the ~5MB quota
+// module-level vars survive client-side nav but clear on hard refresh (results page redirects home if empty, so thats fine)
 
 export interface ScanResult {
   document_found: boolean

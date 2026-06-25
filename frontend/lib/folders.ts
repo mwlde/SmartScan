@@ -1,4 +1,4 @@
-// Folder system — organises saved scans into named collections in localStorage.
+// folder system — named collections for saved scans, stored in localStorage
 
 const FOLDER_KEY = 'ss_folders'
 
@@ -15,7 +15,7 @@ export interface Folder {
   id: string
   name: string
   color: string   // hex from FOLDER_COLOR_PAIRS[n].color
-  bg: string      // hex tint from FOLDER_COLOR_PAIRS[n].bg
+  bg: string      //tint hex tint from FOLDER_COLOR_PAIRS[n].bg
   itemIds: string[]
 }
 

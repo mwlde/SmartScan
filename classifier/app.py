@@ -19,12 +19,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Upload guardrails ──────────────────────────────────────────────────────────
+# 𓆝 𓆟 𓆞 𓆟 𓆝 upload validation
 
 ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 MB
-MAX_DIMENSION  = 10_000             # px per side
+MAX_DIMENSION  = 10_000             # px per side — stops decompression bombs (tiny file, huge decoded size)
 
+# magic bytes are more reliable than Content-Type which the client can fake
+# JPEG starts with ff d8 ff, PNG starts with the 8-byte PNG signature
 _MAGIC: list[tuple[bytes, str]] = [
     (b"\xff\xd8\xff",       "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
@@ -36,6 +38,7 @@ def _check_magic(data: bytes) -> bool:
 
 
 def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | None:
+    # 3-layer check: size, mime type, actual bytes. returns error response or None
     if len(data) > MAX_FILE_BYTES:
         return JSONResponse(status_code=413, content={"error": "File too large. Maximum is 10 MB."})
     if content_type not in ALLOWED_CONTENT_TYPES:
@@ -44,15 +47,12 @@ def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | No
         return JSONResponse(status_code=415, content={"error": "File content does not match a recognised image format."})
     return None
 
-
-# ── /health ────────────────────────────────────────────────────────────────────
+# 𓆝 𓆟 𓆞 𓆟 𓆝 routes
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-
-# ── /classify ──────────────────────────────────────────────────────────────────
 
 @app.post("/classify")
 async def classify(file: UploadFile = File(...)):
@@ -64,7 +64,7 @@ async def classify(file: UploadFile = File(...)):
 
     try:
         image = Image.open(io.BytesIO(data))
-        w, h = image.size  # reads header only — no full pixel decode yet
+        w, h = image.size  # reads header only, no full pixel decode yet
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Could not decode image."})
 

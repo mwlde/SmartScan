@@ -5,7 +5,7 @@ from .perspective import order_points
 
 
 def _auto_canny(gray, sigma=0.33):
-    # NEW: adaptive thresholds based on image median intensity
+    #adaptive thresholds based on median intensity, works better than fixed vals
     v = np.median(gray)
     lower = int(max(0, (1.0 - sigma) * v))
     upper = int(min(255, (1.0 + sigma) * v))
@@ -13,19 +13,15 @@ def _auto_canny(gray, sigma=0.33):
 
 
 def _sides_are_parallel(pts, max_angle_diff=35):
-    # NEW: checks that opposite side pairs of the quad are roughly parallel.
-    # A perspective projection of a rectangle always preserves this property —
-    # opposite sides may converge slightly toward a vanishing point but can
-    # never differ by more than ~35 degrees in a realistic photo.
-    # This rejects quads where one edge goes at a completely different angle
-    # from its opposite (e.g. a diagonal top edge when 3 other sides are straight).
+    # perspective projection of a rectangle always keeps opposite sides roughly parallel
+    # they can converge a bit toward a vanishing point but never more than ~35 deg in a real photo
+    # catches stuff like a diagonal top edge when the other 3 sides are straight
     def side_angle(p1, p2):
         dx = float(p2[0]) - float(p1[0])
         dy = float(p2[1]) - float(p1[1])
         return np.degrees(np.arctan2(dy, dx)) % 180
 
-    # Points from approxPolyDP are in contour order (CW or CCW).
-    # Opposite pairs: (0-1 vs 2-3) and (1-2 vs 3-0).
+    # contour order is CW or CCW, opposite pairs are (0-1 vs 2-3) and (1-2 vs 3-0)
     a01 = side_angle(pts[0], pts[1])
     a12 = side_angle(pts[1], pts[2])
     a23 = side_angle(pts[2], pts[3])
@@ -41,21 +37,19 @@ def _sides_are_parallel(pts, max_angle_diff=35):
 
 
 def _is_valid_quad(quad, frame_area=None):
-    # IMPROVED: now also checks convexity and opposite-side parallelism.
-    # Angle range 50-130 degrees (perspective-safe but rejects extremes).
-    # Area cap 0.90, aspect ratio cap 8.0 unchanged.
+    # convexity, parallelism, corner angles, area cap, aspect ratio
     pts = quad.reshape(4, 2).astype("float32")
 
-    # NEW: convexity — a photograph of a rectangle is always convex
+    # photo of a rectangle is always convex
     contour = pts.reshape(4, 1, 2).astype(np.float32)
     if not cv2.isContourConvex(contour):
         return False
 
-    # NEW: parallelism — opposite sides must be within 35 degrees of parallel
+    # opposite sides within 35 deg of parallel
     if not _sides_are_parallel(pts):
         return False
 
-    # UNCHANGED: individual corner angles 50-130 degrees
+    # corner angles 50-130 deg
     for i in range(4):
         p1 = pts[(i - 1) % 4]
         p2 = pts[i]
@@ -67,7 +61,7 @@ def _is_valid_quad(quad, frame_area=None):
         if angle < 50 or angle > 130:
             return False
 
-    # UNCHANGED: area and aspect ratio caps
+    # area and aspect ratio caps
     if frame_area is not None:
         quad_area = cv2.contourArea(quad.reshape(4, 1, 2).astype(np.float32))
         if quad_area > 0.90 * frame_area:
@@ -82,7 +76,7 @@ def _is_valid_quad(quad, frame_area=None):
 
 
 def _approx_to_quad(contour, frame_area=None):
-    # IMPROVED: tries 6 epsilon values then convex hull fallback
+    #tries 6 epsilon vals until we get a valid 4-point quad, then tries convex hull
     peri = cv2.arcLength(contour, True)
     for eps in [0.02, 0.03, 0.04, 0.05, 0.06, 0.08]:
         approx = cv2.approxPolyDP(contour, eps * peri, True)
@@ -98,7 +92,7 @@ def _approx_to_quad(contour, frame_area=None):
 
 
 def _min_area_rect_quad(contour, frame_area=None):
-    # NEW: minimum area rectangle fitting for curved/crumpled pages
+    #minAreaRect instead of polygon approx, handles slightly curved/crumpled pages
     rect = cv2.minAreaRect(contour)
     box = cv2.boxPoints(rect).reshape(4, 2)
     if _is_valid_quad(box, frame_area):
@@ -107,9 +101,8 @@ def _min_area_rect_quad(contour, frame_area=None):
 
 
 def _fix_bad_corner(quad, frame_h, frame_w):
-    # NEW: reconstructs a displaced corner using the parallelogram rule.
-    # D = A + C - B where B is diagonally opposite to D.
-    # Only applies if improvement > 40 degrees total rectangularity score.
+    # if one corner got pulled off by a nearby edge, reconstruct it from the other 3
+    # D = A + C - B (parallelogram rule), only fires if rect score improves >40 deg
     pts = quad.reshape(4, 2).astype("float32")
 
     def rectangularity_score(p):
@@ -150,7 +143,7 @@ def _fix_bad_corner(quad, frame_h, frame_w):
 
 
 def _detect_fixed_canny(gray, min_area_frac, frame_area):
-    # RESTORED: original fixed Canny (75, 200) — clean images fast path
+    #fixed canny (75, 200) — fast path for clean, well-lit imgs
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edged = cv2.Canny(blurred, 75, 200)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
@@ -168,7 +161,7 @@ def _detect_fixed_canny(gray, min_area_frac, frame_area):
 
 
 def _detect_auto_canny(gray, min_area_frac, frame_area):
-    # NEW: adaptive Canny + larger blur for harder lighting conditions
+    # adaptive canny w/ heavier blur, catches harder lighting conditions
     blurred = cv2.GaussianBlur(gray, (9, 9), 0)
     edged = _auto_canny(blurred)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
@@ -186,8 +179,7 @@ def _detect_auto_canny(gray, min_area_frac, frame_area):
 
 
 def _detect_white_document(small, min_area_frac, frame_area):
-    # NEW: HSV value channel (190 threshold) + minAreaRect
-    # targets white documents on darker backgrounds
+    # hsv value channel, threshold at 190 to isolate bright/white docs on dark bg
     hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
     value = hsv[:, :, 2]
     _, thresh = cv2.threshold(value, 190, 255, cv2.THRESH_BINARY)
@@ -206,7 +198,7 @@ def _detect_white_document(small, min_area_frac, frame_area):
 
 
 def _detect_otsu(gray, min_area_frac, frame_area):
-    # NEW: morphological closing + Otsu threshold last resort
+    #last resort - big morph close then otsu threshold
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
     closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
     _, thresh = cv2.threshold(closed, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -239,30 +231,30 @@ def find_document_contour(image, work_height=500, min_area_frac=0.15):
 
     gray = to_gray(small)
 
-    # Pass 1: original fixed Canny — clean images fast path
+    # pass 1: fixed canny, fast path
     doc = _detect_fixed_canny(gray, min_area_frac, orig_frame_area)
 
-    # Pass 2: auto Canny + larger blur
+    # pass 2: auto canny w/ bigger blur
     if doc is None:
         doc = _detect_auto_canny(gray, min_area_frac, orig_frame_area)
 
-    # Pass 3: LAB L-channel + auto Canny
+    # pass 3: lab l-channel instead of gray
     if doc is None:
         l_channel = cv2.cvtColor(small, cv2.COLOR_BGR2LAB)[:, :, 0]
         doc = _detect_auto_canny(l_channel, min_area_frac, orig_frame_area)
 
-    # Pass 4: HSV white blob + minAreaRect
+    # pass 4: hsv white blob
     if doc is None:
         doc = _detect_white_document(small, min_area_frac, orig_frame_area)
 
-    # Pass 5: Otsu fallback
+    # pass 5: otsu, last resort
     if doc is None:
         doc = _detect_otsu(gray, min_area_frac, orig_frame_area)
 
     if doc is None:
         return full_frame_corners(image), False
 
-    # Reconstruct any displaced corner from the other three
+    # try to fix any corner that got pulled off-doc
     doc = _fix_bad_corner(doc, small.shape[0], small.shape[1])
 
     corners = (doc.reshape(4, 2).astype("float32") - PAD) * ratio
@@ -274,7 +266,6 @@ def find_document_contour(image, work_height=500, min_area_frac=0.15):
 
 
 def draw_contour(image, corners, color=(0, 255, 0), thickness=3):
-    # UNCHANGED
     out = image.copy()
     pts = corners.astype(int).reshape(-1, 1, 2)
     cv2.polylines(out, [pts], isClosed=True, color=color, thickness=thickness)

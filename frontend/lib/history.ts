@@ -1,6 +1,5 @@
-// Lightweight scan history stored in localStorage.
-// Only the final scan image (resized to ≤600 px, JPEG 0.70) is kept — storing all
-// 6 stage images at full resolution would exceed the ~5 MB localStorage quota.
+// scan history in localStorage
+// only keeps the final scan img (<600px JPEG 0.70) — storing all 6 stage imgs at full res would blow the ~5MB quota
 
 export interface HistoryItem {
   id: string
@@ -8,16 +7,18 @@ export interface HistoryItem {
   label: string
   confidence: number
   document_found: boolean
-  thumbnail: string   // data:image/jpeg;base64,... at ≤600 px, '' on failure
+  thumbnail: string   // data:image/jpeg;base64,... at ≤600px, '' on failure
   saved: boolean
-  quality?: string    // 'low' | 'medium' | 'high'; undefined for entries saved before v0.8
+  quality?: string    // undefined for entries saved before v0.8
 }
 
 const KEY = 'ss_history'
 const MAX_ITEMS = 50
 
-// ── Thumbnail generator (browser-only, call only inside useEffect) ─────────────
+// 𓆝 𓆟 𓆞 𓆟 𓆝 thumbnail
 
+// browser-only (uses canvas), call inside useEffect or after mount check
+// takes the warped PNG from the scan result and encodes it as a tiny JPEG data-url for display
 export async function createThumbnail(b64: string, maxDim = 600): Promise<string> {
   if (typeof window === 'undefined') return ''
   return new Promise(resolve => {
@@ -35,7 +36,7 @@ export async function createThumbnail(b64: string, maxDim = 600): Promise<string
   })
 }
 
-// ── CRUD ───────────────────────────────────────────────────────────────────────
+// 𓆝 𓆟 𓆞 𓆟 𓆝 crud
 
 export function getHistory(): HistoryItem[] {
   try {
@@ -49,7 +50,7 @@ function persist(items: HistoryItem[]): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(items))
   } catch {
-    // localStorage full — drop oldest half and retry
+    // storage full — drop oldest half and retry
     const trimmed = items.slice(0, Math.floor(items.length / 2))
     try { localStorage.setItem(KEY, JSON.stringify(trimmed)) } catch { /* give up */ }
   }

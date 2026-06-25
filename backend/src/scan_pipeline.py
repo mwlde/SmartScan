@@ -13,13 +13,13 @@ from . import segmentation
 class ScanResult:
     original: np.ndarray
     enhanced: np.ndarray
-    detected_overlay: np.ndarray      # original with the page quad drawn
-    corners: np.ndarray               # (4,2) corners used
-    document_found: bool              # False => fell back to full frame
+    detected_overlay: np.ndarray      # original w/ the page quad drawn on top
+    corners: np.ndarray               # (4,2) corners used for warp
+    document_found: bool              # False = fell back to full frame
     warped: np.ndarray                # perspective-corrected page (color)
-    scan: np.ndarray                  # binarized "scanned look"
-    regions: list                     # list of (x,y,w,h) on the scan
-    region_overlay: np.ndarray        # scan with region boxes drawn
+    scan: np.ndarray                  # binarized final scan
+    regions: list                     # list of (x,y,w,h) boxes on the scan
+    region_overlay: np.ndarray        # scan w/ region boxes drawn
     timings_ms: dict = field(default_factory=dict)
 
     @property
