@@ -17,6 +17,8 @@ A mobile document scanner that detects, corrects perspective, and classifies doc
 
 ## Project structure
 
+(semi accurate, its a little messier in practice since i decided we need a redesign. major redesign. of everything. )
+
 ```
 smartscan/
 ├── backend/                    # FastAPI + OpenCV scan pipeline
@@ -71,31 +73,35 @@ smartscan/
 
 ## Running the demo locally
 
-You need three terminals — one per service. Start them in this order.
+You need three terminals, one per service. Start them in this order. *or else*
 
 ### Prerequisites
 
 - **Python 3.9+** — `python3 --version`
 - **Node.js 18+** — `node --version`
-- **The model weights file** — `document_classifier_v2.pt` is not in git. Get it from Maria and place it in `classifier/`.
+- **The model weights file** — `document_classifier_v2.pt` is not in git. Get it from the google drive pls and place it in `classifier/`.
+
+If there are any questions or u can't find a file, pls don't hesitate to reach out and email mb631@uowmail.edu.au or any other group members email.(although me, personally, I am horrible at reading and replying to emails, so expect a delay.)
 
 ---
 
-### 1 — Backend (CV pipeline) · port 8000
+### 1 — Backend (CV pipeline) port 8000
 
 ```bash
 cd backend
 python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+source venv/bin/activate        #windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
+ps: i swiched to mac a few days ago and now I have the priviledge of writing for both windows and mac ;p
+if i start using linux eventually, we can say ive collected all the infinity stones. 
 
 Health check: [http://localhost:8000/health](http://localhost:8000/health) → `{"status":"ok"}`
 
 ---
 
-### 2 — Classifier · port 8001
+### 2 — Classifier port 8001
 
 ```bash
 cd classifier
@@ -111,7 +117,7 @@ Health check: [http://localhost:8001/health](http://localhost:8001/health) → `
 
 ---
 
-### 3 — Frontend · port 3000
+### 3 — Frontend port 3000
 
 Create `frontend/.env.local` (gitignored — create manually):
 
