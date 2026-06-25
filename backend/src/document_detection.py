@@ -4,24 +4,27 @@ from .utils import resize_to_height, to_gray, full_frame_corners
 from .perspective import order_points
 
 
+# canny edge detection needs two thresholds (lower and upper)
+# instead of hardcoding them, this calculates them based on the median pixel intensity
+# works better on images with varying brightness
 def _auto_canny(gray, sigma=0.33):
-    #adaptive thresholds based on median intensity, works better than fixed vals
     v = np.median(gray)
     lower = int(max(0, (1.0 - sigma) * v))
     upper = int(min(255, (1.0 + sigma) * v))
     return cv2.Canny(gray, lower, upper)
 
 
+# checks whether a 4 point quad could realistically be a photo of a rectangle
+# perspective projection of a rectangle always keeps opposite sides roughly parallel,
+# they can converge a bit toward a vanishing point but never more than ~35 deg in a real photo
+# catches stuff like a diagonal top edge when the other 3 sides are straight
 def _sides_are_parallel(pts, max_angle_diff=35):
-    # perspective projection of a rectangle always keeps opposite sides roughly parallel
-    # they can converge a bit toward a vanishing point but never more than ~35 deg in a real photo
-    # catches stuff like a diagonal top edge when the other 3 sides are straight
     def side_angle(p1, p2):
         dx = float(p2[0]) - float(p1[0])
         dy = float(p2[1]) - float(p1[1])
         return np.degrees(np.arctan2(dy, dx)) % 180
 
-    # contour order is CW or CCW, opposite pairs are (0-1 vs 2-3) and (1-2 vs 3-0)
+    # contour order is cw or ccw, opposite pairs are (0 1 vs 2 3) and (1 2 vs 3 0)
     a01 = side_angle(pts[0], pts[1])
     a12 = side_angle(pts[1], pts[2])
     a23 = side_angle(pts[2], pts[3])
@@ -36,8 +39,11 @@ def _sides_are_parallel(pts, max_angle_diff=35):
     return diff1 <= max_angle_diff and diff2 <= max_angle_diff
 
 
+# rejects quads that dont look like a real document photo
+# checks convexity (a real photo of a rect is always convex),
+# parallelism of opposite sides, corner angles between 50 to 130 deg,
+# area (cant be 90%+ of the frame, thats just the whole image) and aspect ratio (no crazy thin strips)
 def _is_valid_quad(quad, frame_area=None):
-    # convexity, parallelism, corner angles, area cap, aspect ratio
     pts = quad.reshape(4, 2).astype("float32")
 
     # photo of a rectangle is always convex
@@ -49,7 +55,7 @@ def _is_valid_quad(quad, frame_area=None):
     if not _sides_are_parallel(pts):
         return False
 
-    # corner angles 50-130 deg
+    # corner angles 50 to 130 deg
     for i in range(4):
         p1 = pts[(i - 1) % 4]
         p2 = pts[i]
@@ -75,8 +81,11 @@ def _is_valid_quad(quad, frame_area=None):
     return True
 
 
+# tries to simplify a contour down to exactly 4 points that pass _is_valid_quad
+# tries 6 different epsilon values (how aggressively to simplify the curve)
+# if none of those work, falls back to the convex hull of the contour and tries again
+# epsilon controls how much the simplified shape is allowed to deviate from the original
 def _approx_to_quad(contour, frame_area=None):
-    #tries 6 epsilon vals until we get a valid 4-point quad, then tries convex hull
     peri = cv2.arcLength(contour, True)
     for eps in [0.02, 0.03, 0.04, 0.05, 0.06, 0.08]:
         approx = cv2.approxPolyDP(contour, eps * peri, True)
@@ -91,8 +100,10 @@ def _approx_to_quad(contour, frame_area=None):
     return None
 
 
+# alternative to _approx_to_quad for slightly curved or crumpled pages
+# min area rect fits a rotated bounding box to the contour which gives a cleaner quad
+# when the edges arent perfectly straight
 def _min_area_rect_quad(contour, frame_area=None):
-    #minAreaRect instead of polygon approx, handles slightly curved/crumpled pages
     rect = cv2.minAreaRect(contour)
     box = cv2.boxPoints(rect).reshape(4, 2)
     if _is_valid_quad(box, frame_area):
@@ -100,9 +111,10 @@ def _min_area_rect_quad(contour, frame_area=None):
     return None
 
 
+# sometimes one corner of the detected quad gets pulled off by a nearby edge in the image
+# this tries to reconstruct the bad corner from the other 3 using the parallelogram rule (D = A + C - B)
+# only applies the fix if it improves the rectangularity score by more than 40 degrees total
 def _fix_bad_corner(quad, frame_h, frame_w):
-    # if one corner got pulled off by a nearby edge, reconstruct it from the other 3
-    # D = A + C - B (parallelogram rule), only fires if rect score improves >40 deg
     pts = quad.reshape(4, 2).astype("float32")
 
     def rectangularity_score(p):
@@ -142,8 +154,9 @@ def _fix_bad_corner(quad, frame_h, frame_w):
     return quad
 
 
+# detection pass 1, fast path for clean well lit images
+# uses fixed canny thresholds (75, 200) which work well when contrast is good
 def _detect_fixed_canny(gray, min_area_frac, frame_area):
-    #fixed canny (75, 200) — fast path for clean, well-lit imgs
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edged = cv2.Canny(blurred, 75, 200)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
@@ -160,8 +173,9 @@ def _detect_fixed_canny(gray, min_area_frac, frame_area):
     return None
 
 
+# detection pass 2, adaptive thresholds and heavier blur
+# handles harder lighting, shadows, and lower contrast docs where fixed canny fails
 def _detect_auto_canny(gray, min_area_frac, frame_area):
-    # adaptive canny w/ heavier blur, catches harder lighting conditions
     blurred = cv2.GaussianBlur(gray, (9, 9), 0)
     edged = _auto_canny(blurred)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
@@ -178,8 +192,9 @@ def _detect_auto_canny(gray, min_area_frac, frame_area):
     return None
 
 
+# detection pass 4, specifically for white/bright docs on a dark background
+# thresholds the hsv value channel at 190 to isolate the bright area, then finds its outline
 def _detect_white_document(small, min_area_frac, frame_area):
-    # hsv value channel, threshold at 190 to isolate bright/white docs on dark bg
     hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
     value = hsv[:, :, 2]
     _, thresh = cv2.threshold(value, 190, 255, cv2.THRESH_BINARY)
@@ -197,8 +212,10 @@ def _detect_white_document(small, min_area_frac, frame_area):
     return None
 
 
+# detection pass 5, last resort when everything else fails
+# otsu threshold automatically picks the best global threshold value, then dilates to clean up
+# less accurate than edge based approaches but catches cases where edges are too faint
 def _detect_otsu(gray, min_area_frac, frame_area):
-    #last resort - big morph close then otsu threshold
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
     closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
     _, thresh = cv2.threshold(closed, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -219,6 +236,10 @@ def _detect_otsu(gray, min_area_frac, frame_area):
     return None
 
 
+# the main detection function, tries 5 different methods in order and returns the first one that works
+# we downscale the image first (to work_height) so edge detection is faster, then scale corners back up
+# the padding trick stops edge detection from missing a document that touches the image border
+# returns (corners, true) on success, or (full frame corners, false) if nothing worked
 def find_document_contour(image, work_height=500, min_area_frac=0.15):
     small, ratio = resize_to_height(image, work_height)
     orig_frame_area = small.shape[0] * small.shape[1]
@@ -234,11 +255,11 @@ def find_document_contour(image, work_height=500, min_area_frac=0.15):
     # pass 1: fixed canny, fast path
     doc = _detect_fixed_canny(gray, min_area_frac, orig_frame_area)
 
-    # pass 2: auto canny w/ bigger blur
+    # pass 2: auto canny with bigger blur
     if doc is None:
         doc = _detect_auto_canny(gray, min_area_frac, orig_frame_area)
 
-    # pass 3: lab l-channel instead of gray
+    # pass 3: lab l channel instead of gray (better for colored docs)
     if doc is None:
         l_channel = cv2.cvtColor(small, cv2.COLOR_BGR2LAB)[:, :, 0]
         doc = _detect_auto_canny(l_channel, min_area_frac, orig_frame_area)
@@ -254,7 +275,7 @@ def find_document_contour(image, work_height=500, min_area_frac=0.15):
     if doc is None:
         return full_frame_corners(image), False
 
-    # try to fix any corner that got pulled off-doc
+    # try to fix any corner that got pulled off the doc
     doc = _fix_bad_corner(doc, small.shape[0], small.shape[1])
 
     corners = (doc.reshape(4, 2).astype("float32") - PAD) * ratio
@@ -265,6 +286,7 @@ def find_document_contour(image, work_height=500, min_area_frac=0.15):
     return order_points(corners), True
 
 
+# draws the detected quad outline on a copy of the image so you can see what was found
 def draw_contour(image, corners, color=(0, 255, 0), thickness=3):
     out = image.copy()
     pts = corners.astype(int).reshape(-1, 1, 2)

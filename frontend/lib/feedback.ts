@@ -22,8 +22,9 @@ export function setFeedbackOptOut(): void {
 
 // 𓆝 𓆟 𓆞 𓆟 𓆝 image upload
 
-// compress a raw base64 PNG (no data-url prefix) down to a JPEG blob before uploading
-// uses canvas so we can resize and re-encode without a server round-trip
+// takes a raw base64 png (no data url prefix) and compresses it to a jpeg blob before uploading
+// we use canvas to resize and re-encode in the browser so we dont need a server round trip
+// max 800px on the longest side, jpeg at quality 0.8 keeps the file small enough for supabase storage
 async function _compressForUpload(rawB64: string): Promise<Blob | null> {
   return new Promise((resolve) => {
     try {
@@ -52,7 +53,9 @@ async function _compressForUpload(rawB64: string): Promise<Blob | null> {
   })
 }
 
-// upload to supabase feedback-images bucket using the uuid as filename, returns public url or null
+// uploads to the feedback images supabase bucket using the row uuid as the filename
+// returns the public url on success, or null if anything goes wrong
+// the bucket is public read so the url works without auth
 async function _uploadFeedbackImage(rawB64: string, id: string): Promise<string | null> {
   const blob = await _compressForUpload(rawB64)
   if (!blob) return null
@@ -71,11 +74,10 @@ async function _uploadFeedbackImage(rawB64: string, id: string): Promise<string 
 
 // 𓆝 𓆟 𓆞 𓆟 𓆝 submission
 
-// localStorage write always happens first so the entry is never lost even if supabase fails
-// warpedImage is the raw base64 PNG from the scan — compressed + uploaded before the row insert
-// if the upload fails we still insert the row, just with image_url = null
-// warpedImage: raw base64 PNG from scan result — compressed + uploaded before insert
-// if upload fails, row still goes in with image_url = null
+// saves feedback both locally and to supabase
+// localstorage write always happens first so the entry is never lost even if supabase is down or theres no internet
+// warped image is the raw base64 png from the scan result, gets compressed and uploaded before the row insert
+// if the upload fails the row still goes in, just with image_url null instead
 export async function submitFeedback(
   predicted_label: string,
   confidence: number,
@@ -91,12 +93,12 @@ export async function submitFeedback(
     const log: FeedbackEntry[] = JSON.parse(localStorage.getItem(LOG_KEY) ?? '[]')
     log.unshift(entry)
     localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(0, 200)))
-  } catch { /* storage full — continue anyway */ }
+  } catch { /* storage full, continue anyway */ }
 
   try {
     const { data: { user } } = await supabase.auth.getUser()
 
-    // upload is best-effort — failure doesnt block the row insert
+    // upload is best effort, failure doesnt block the row insert
     let image_url: string | null = null
     if (warpedImage) {
       try {
@@ -113,7 +115,7 @@ export async function submitFeedback(
       user_id:   user?.id ?? null,
       image_url,
     })
-  } catch { /* no internet or supabase down — local copy already saved */ }
+  } catch { /* no internet or supabase down, local copy already saved */ }
 }
 
 export function getFeedbackLog(): FeedbackEntry[] {

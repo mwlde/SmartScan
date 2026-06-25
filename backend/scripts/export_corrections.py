@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-# admin script, run manually — not part of the live api
-# downloads misclassified imgs from supabase and sorts them into per-label folders for retraining
+# admin script, run manually, not part of the live api
+# downloads misclassified imgs from supabase and sorts them into per label folders for retraining
 #
 # output:  corrections/{label}/{feedback_id}.jpg
 # usage:   python export_corrections.py
 #          python export_corrections.py --dry-run
 #
 # needs:   SUPABASE_URL and SUPABASE_SERVICE_KEY in env or backend/.env
-#          (service role key, NOT the anon key — needs to bypass RLS)
+#          (service role key, not the anon key, needs to bypass rls)
 
 import argparse
 import collections
@@ -21,8 +21,9 @@ import urllib.request
 
 # 𓆝 𓆟 𓆞 𓆟 𓆝 env + config
 
+# reads backend/.env and sets env vars from it so you dont have to export them manually every time
+# shell set vars take priority, .env values only fill in what isnt already set
 def _load_dotenv() -> None:
-    # loads backend/.env so you dont have to export vars manually every time
     env_path = pathlib.Path(__file__).parent.parent / ".env"
     if not env_path.exists():
         return
@@ -33,7 +34,7 @@ def _load_dotenv() -> None:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip()
-        if key and key not in os.environ:   # shell-set vars take priority over .env
+        if key and key not in os.environ:
             os.environ[key] = value
 
 _load_dotenv()
@@ -43,16 +44,19 @@ OUTPUT_ROOT  = pathlib.Path("corrections")
 PAGE_SIZE    = 1000   # supabase max rows per request
 
 
+# just grabs an env var and exits with a clear error if its missing
 def require_env(name: str) -> str:
     value = os.environ.get(name, "").strip()
     if not value:
-        print(f"Error: environment variable {name!r} is not set.", file=sys.stderr)
+        print(f"error: environment variable {name!r} is not set.", file=sys.stderr)
         sys.exit(1)
     return value
 
 
+# paginates through a supabase rest endpoint until all rows are fetched
+# supabase caps responses at PAGE_SIZE rows, so we keep requesting with an increasing offset
+# until we get back fewer rows than PAGE_SIZE which means we hit the end
 def supabase_get(base_url: str, service_key: str, path: str, params: dict) -> list[dict]:
-    """paginated GET from supabase REST api. loops until we get fewer than PAGE_SIZE rows back, meaning we hit the end."""
     headers = {
         "apikey":        service_key,
         "Authorization": f"Bearer {service_key}",
@@ -72,7 +76,7 @@ def supabase_get(base_url: str, service_key: str, path: str, params: dict) -> li
                 body = resp.read().decode()
         except urllib.error.HTTPError as exc:
             body = exc.read().decode()
-            print(f"Supabase API error {exc.code}: {body}", file=sys.stderr)
+            print(f"supabase api error {exc.code}: {body}", file=sys.stderr)
             sys.exit(1)
 
         rows = json.loads(body)
@@ -85,12 +89,14 @@ def supabase_get(base_url: str, service_key: str, path: str, params: dict) -> li
     return all_rows
 
 
+# downloads an image from a url and returns the raw bytes
+# returns none on any failure so the caller can skip and continue
 def download_bytes(url: str, timeout: int = 30) -> bytes | None:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             return resp.read()
     except Exception as exc:
-        print(f"    warning: download failed — {exc}")
+        print(f"    warning: download failed, {exc}")
         return None
 
 # 𓆝 𓆟 𓆞 𓆟 𓆝 main
@@ -110,7 +116,7 @@ def main() -> None:
     supabase_url = require_env("SUPABASE_URL").rstrip("/")
     service_key  = require_env("SUPABASE_SERVICE_KEY")
 
-    print("Querying feedback table...")
+    print("querying feedback table...")
     rows = supabase_get(
         supabase_url,
         service_key,
@@ -122,7 +128,7 @@ def main() -> None:
             "correct_label": "not.is.null",
         },
     )
-    print(f"Found {len(rows)} correction row{'s' if len(rows) != 1 else ''}.\n")
+    print(f"found {len(rows)} correction row{'s' if len(rows) != 1 else ''}.\n")
 
     per_class: collections.Counter[str] = collections.Counter()
     skipped         = 0
@@ -146,11 +152,11 @@ def main() -> None:
         dest = OUTPUT_ROOT / correct_label / f"{feedback_id}.jpg"
 
         if args.dry_run:
-            print(f"  [dry-run] {correct_label:<20} ← {feedback_id}.jpg")
+            print(f"  [dry-run] {correct_label:<20} {feedback_id}.jpg")
             per_class[correct_label] += 1
             continue
 
-        print(f"  {correct_label:<20} ← {feedback_id}.jpg")
+        print(f"  {correct_label:<20} {feedback_id}.jpg")
         data = download_bytes(image_url)
         if data is None:
             download_errors += 1
@@ -160,28 +166,27 @@ def main() -> None:
         dest.write_bytes(data)
         per_class[correct_label] += 1
 
-    # summary
-    divider    = "─" * 50
-    mode_tag   = "[DRY RUN] " if args.dry_run else ""
+    divider    = "-" * 50
+    mode_tag   = "[dry run] " if args.dry_run else ""
     total_done = sum(per_class.values())
 
     print(f"\n{divider}")
-    print(f"{mode_tag}Summary")
+    print(f"{mode_tag}summary")
     print(divider)
-    print(f"Total corrections found : {len(rows)}")
-    print("Per class:")
+    print(f"total corrections found : {len(rows)}")
+    print("per class:")
     for label in sorted(VALID_LABELS):
         n = per_class.get(label, 0)
         print(f"  {label:<20} {n:>4} image{'s' if n != 1 else ''}")
     if skipped:
-        print(f"Skipped (bad data)      : {skipped}")
+        print(f"skipped (bad data)      : {skipped}")
     if download_errors:
-        print(f"Download errors         : {download_errors}")
+        print(f"download errors         : {download_errors}")
 
     if args.dry_run:
-        print(f"\nDry run complete — no files written.")
+        print(f"\ndry run complete, no files written.")
     else:
-        print(f"\nDone. {total_done} image{'s' if total_done != 1 else ''} saved to ./{OUTPUT_ROOT}/")
+        print(f"\ndone. {total_done} image{'s' if total_done != 1 else ''} saved to ./{OUTPUT_ROOT}/")
 
 
 if __name__ == "__main__":

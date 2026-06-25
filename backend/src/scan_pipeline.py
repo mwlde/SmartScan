@@ -13,13 +13,13 @@ from . import segmentation
 class ScanResult:
     original: np.ndarray
     enhanced: np.ndarray
-    detected_overlay: np.ndarray      # original w/ the page quad drawn on top
-    corners: np.ndarray               # (4,2) corners used for warp
-    document_found: bool              # False = fell back to full frame
-    warped: np.ndarray                # perspective-corrected page (color)
+    detected_overlay: np.ndarray      # original with the page quad drawn on top
+    corners: np.ndarray               # (4,2) corners used for the warp
+    document_found: bool              # false if we fell back to the full frame
+    warped: np.ndarray                # perspective corrected page (color)
     scan: np.ndarray                  # binarized final scan
     regions: list                     # list of (x,y,w,h) boxes on the scan
-    region_overlay: np.ndarray        # scan w/ region boxes drawn
+    region_overlay: np.ndarray        # scan with region boxes drawn on it
     timings_ms: dict = field(default_factory=dict)
 
     @property
@@ -27,6 +27,10 @@ class ScanResult:
         return sum(self.timings_ms.values())
 
 
+# runs the full pipeline on an image and returns a scan result with every intermediate stage
+# order is: enhance, detect corners, warp, binarize, segment regions
+# each step is timed so we can see where time is being spent
+# work_height controls the resolution used for corner detection (lower = faster but less accurate)
 def scan_document(image, work_height=500):
     t = {}
 

@@ -5,8 +5,11 @@ import numpy as np
 from .utils import to_gray
 
 
+# improves image quality before we try to detect the document edges
+# bilateral filter smooths out noise without blurring the edges (important bc edge detection comes next)
+# clahe boosts local contrast on the lightness channel so text is more readable in dark or uneven lighting
+# we only touch the l channel in lab space so the colors dont shift
 def enhance(image, denoise=True, clahe=True):
-    # bilateral filter preserves edges while denoising, clahe on L-channel only (avoids color shift)
     out = image.copy()
 
     if denoise:
@@ -22,9 +25,12 @@ def enhance(image, denoise=True, clahe=True):
     return out
 
 
+# converts the warped page to a black and white scan look
+# adaptive threshold works way better than a fixed cutoff bc it adjusts per region,
+# so it handles shadows and uneven lighting without washing out or going too dark
+# the median blur before thresholding kills paper texture and sensor noise that would otherwise show up as speckles
 def to_scan(image, block_size=25, c=15):
     gray = to_gray(image)
-    # mild blur first to kill paper texture / sensor noise before thresholding
     gray = cv2.medianBlur(gray, 3)
     if block_size % 2 == 0:
         block_size += 1

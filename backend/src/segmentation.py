@@ -4,10 +4,12 @@ import numpy as np
 from .utils import to_gray
 
 
+# finds where the text/content regions are on the warped doc
+# the idea is: binarize so text is white on black, open to remove tiny specks,
+# then dilate with a wide short kernel so individual chars merge into full line blobs,
+# then just grab the bounding boxes of those blobs
+# we skip boxes that are too small (noise) or cover basically the whole page (usually the border)
 def segment_regions(image, min_area_frac=0.0008, merge_kernel=(25, 5)):
-    """find text/content bounding boxes on a warped doc img.
-    binarize, open to kill specks, dilate to glue chars into line blobs, bounding boxes."""
-
     gray = to_gray(image)
     binary = cv2.adaptiveThreshold(
         gray, 255,
@@ -20,7 +22,7 @@ def segment_regions(image, min_area_frac=0.0008, merge_kernel=(25, 5)):
         binary, cv2.MORPH_OPEN,
         cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2)),
     )
-    # wide-short kernel glues chars of a line into one blob, narrow enough to keep lines separate
+    # wide short kernel glues chars of a line into one blob, narrow enough to keep lines separate
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, merge_kernel)
     dilated = cv2.dilate(binary, kernel, iterations=2)
 
@@ -39,13 +41,13 @@ def segment_regions(image, min_area_frac=0.0008, merge_kernel=(25, 5)):
             continue
         boxes.append((x, y, w, h))
 
-    # reading order: top-to-bottom then left-to-right within 20px bands
+    # reading order: top to bottom then left to right within 20px bands
     boxes.sort(key=lambda b: (b[1] // 20, b[0]))
     return boxes
 
 
+# draws numbered bounding boxes on a copy of the img so we can visualize the detected regions
 def draw_regions(image, boxes, color=(255, 0, 0), thickness=2):
-    # draws numbered bounding boxes on a copy of the img
     out = image.copy()
     if out.ndim == 2:
         out = cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)

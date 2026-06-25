@@ -23,23 +23,24 @@ app.add_middleware(
 # 𓆝 𓆟 𓆞 𓆟 𓆝 upload validation
 
 ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
-MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 MB
-MAX_DIMENSION  = 10_000             # px per side — stops decompression bombs (tiny file, huge decoded size)
+MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 mb
+MAX_DIMENSION  = 10_000             # px per side, stops decompression bombs (tiny file but huge decoded size)
 
-# magic bytes are more reliable than Content-Type which the client can fake
-# JPEG starts with ff d8 ff, PNG starts with the 8-byte PNG signature
+# magic bytes are more reliable than content type which the client can fake
+# jpeg starts with ff d8 ff, png starts with the 8 byte png signature
 _MAGIC: list[tuple[bytes, str]] = [
     (b"\xff\xd8\xff",       "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
 ]
 
-
+# just peeks at the first few bytes of the file to confirm it's actually what it claims to be
 def _check_magic(data: bytes) -> bool:
     return any(data[:len(sig)] == sig for sig, _ in _MAGIC)
 
 
+# runs 3 checks before we touch the image: file size, mime type, and actual byte content
+# returns a json error response if anything looks wrong, or none if its fine
 def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | None:
-    # 3-layer check: size, mime type, actual bytes. returns error response or None
     if len(data) > MAX_FILE_BYTES:
         return JSONResponse(status_code=413, content={"error": "File too large. Maximum is 10 MB."})
     if content_type not in ALLOWED_CONTENT_TYPES:
@@ -49,6 +50,7 @@ def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | No
     return None
 
 
+# converts a cv2 image (numpy array) to a base64 png string so we can send it over json
 def _encode_png(img: np.ndarray) -> str:
     _, buf = cv2.imencode(".png", img)
     return base64.b64encode(buf).decode()
@@ -59,10 +61,15 @@ def health():
     return {"status": "ok"}
 
 
-_QUALITY_MAP = {"low": 350, "medium": 500, "high": 800}  # maps to work_height for detection pass
+# quality thingy maps to the work height used during document detection
+# lower = faster but misses fine edges, higher = slower but better on detailed docs
+_QUALITY_MAP = {"low": 350, "medium": 500, "high": 800}
 
 # 𓆝 𓆟 𓆞 𓆟 𓆝 routes
 
+# main endpoint, takes an uploaded image and runs the full cv pipeline on it
+# returns 6 versions of the image (original, enhanced, detected, warped, scan, region overlay) as base64 pngs
+# also returns the detected text region boxes and timing info
 @app.post("/scan")
 async def scan(file: UploadFile = File(...), quality: str = Form("medium")):
     data = await file.read()
@@ -83,7 +90,7 @@ async def scan(file: UploadFile = File(...), quality: str = Form("medium")):
             content={"error": f"Image dimensions too large. Maximum is {MAX_DIMENSION}×{MAX_DIMENSION} px."},
         )
 
-    # resize to max 1000px on longest side — large imgs hang on 0.1 CPU
+    # resize to max 1000px on longest side, large imgs hang on 0.1 cpu
     if max(h, w) > 1000:
         scale = 1000 / max(h, w)
         image = cv2.resize(image, (int(w * scale), int(h * scale)))

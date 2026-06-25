@@ -22,23 +22,24 @@ app.add_middleware(
 # 𓆝 𓆟 𓆞 𓆟 𓆝 upload validation
 
 ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
-MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 MB
-MAX_DIMENSION  = 10_000             # px per side — stops decompression bombs (tiny file, huge decoded size)
+MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 mb
+MAX_DIMENSION  = 10_000             # px per side, stops decompression bombs (tiny file but huge decoded size)
 
-# magic bytes are more reliable than Content-Type which the client can fake
-# JPEG starts with ff d8 ff, PNG starts with the 8-byte PNG signature
+# magic bytes are more reliable than content type which the client can fake
+# jpeg starts with ff d8 ff, png starts with the 8 byte png signature
 _MAGIC: list[tuple[bytes, str]] = [
     (b"\xff\xd8\xff",       "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
 ]
 
-
+# just peeks at the first few bytes of the file to confirm it's actually what it claims to be
 def _check_magic(data: bytes) -> bool:
     return any(data[:len(sig)] == sig for sig, _ in _MAGIC)
 
 
+# runs 3 checks before we touch the image: file size, mime type, and actual byte content
+# returns a json error response if anything looks wrong, or none if its fine
 def _validate_upload(data: bytes, content_type: str | None) -> JSONResponse | None:
-    # 3-layer check: size, mime type, actual bytes. returns error response or None
     if len(data) > MAX_FILE_BYTES:
         return JSONResponse(status_code=413, content={"error": "File too large. Maximum is 10 MB."})
     if content_type not in ALLOWED_CONTENT_TYPES:
@@ -54,6 +55,9 @@ def health():
     return {"status": "ok"}
 
 
+# takes an uploaded image, validates it, then runs the classifier model on it
+# pil is used here because classification_core expects a pil image
+# we check dimensions before fully decoding to avoid loading a massive image into memory for no reason
 @app.post("/classify")
 async def classify(file: UploadFile = File(...)):
     data = await file.read()
