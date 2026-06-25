@@ -2,7 +2,7 @@
 
 A mobile document scanner that detects, corrects perspective, and classifies document images using computer vision and deep learning. Built for CSCI435 at the University of Wollongong in Dubai.
 
-**Current version: v0.14**
+**Current version: v0.15**
 
 ---
 
@@ -26,6 +26,8 @@ smartscan/
 │   │   ├── preprocessing.py
 │   │   ├── segmentation.py
 │   │   └── scan_pipeline.py
+│   ├── scripts/
+│   │   └── export_corrections.py   # Admin: download misclassified images for retraining
 │   ├── main.py                 # POST /scan  (accepts quality: low|medium|high)
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -58,7 +60,9 @@ smartscan/
 │   └── .env.local              # API URLs + Supabase keys — gitignored
 ├── supabase/
 │   └── migrations/
-│       └── 20260623120000_create_feedback_table.sql
+│       ├── 20260623120000_create_feedback_table.sql
+│       ├── 20260624000000_create_feedback_images_bucket.sql
+│       └── 20260624000001_add_feedback_image_url.sql
 ├── .gitignore
 └── README.md
 ```
@@ -144,7 +148,7 @@ To apply the database migration, run:
 supabase db push
 ```
 
-Or paste `supabase/migrations/20260623120000_create_feedback_table.sql` into the Supabase dashboard SQL editor.
+Or paste each file in `supabase/migrations/` into the Supabase dashboard SQL editor in order.
 
 Users are **not required to log in** — all features (scan, classify, history, folders, feedback) work fully as a guest. When signed in, `user_id` is attached to feedback rows. When not signed in, `user_id` is `null`.
 
@@ -162,6 +166,7 @@ The training pipeline uses MobileNetV2 with augmentation: random flips, rotation
 
 | Version | Feature |
 |---------|---------|
+| v0.15 | Feedback image storage: warped image uploaded to Supabase Storage alongside each feedback row; export_corrections.py script for retraining data export; logo and icon refresh |
 | v0.14 | Removed deskew step from CV pipeline — perspective correction already produces near-straight output |
 | v0.13 | Upload security hardening on /scan and /classify: MIME + magic-byte validation, 10 MB size limit, dimension cap, generic error responses |
 | v0.12 | Optional Supabase Auth (email + password, guest-first); CHECK constraints on feedback label columns |

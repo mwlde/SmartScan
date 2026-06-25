@@ -1,6 +1,6 @@
 # SmartScan — Technical Overview
 
-**Version:** v0.14  
+**Version:** v0.15  
 **Course:** CSCI435 — Computer Vision Algorithms and Systems  
 **University:** University of Wollongong in Dubai
 
@@ -364,7 +364,20 @@ All five rules are evaluated on every keystroke via `checkPassword(pw): PwRules`
 Email field: `maxLength={255}` prevents oversized payloads.  
 Password fields: `maxLength={72}` on both password inputs — the browser hard-stops at the bcrypt limit.
 
-### 3.5 Input Sanitisation
+### 3.5 Supabase Storage Security (`feedback-images`)
+
+The `feedback-images` bucket is configured as **public** (Supabase serves objects via public CDN URLs without requiring auth headers). RLS policies on `storage.objects` restrict writes to the bucket path:
+
+| Policy | Operation | Role | Rule |
+|--------|-----------|------|------|
+| "public read feedback images" | SELECT | public | `bucket_id = 'feedback-images'` |
+| "anyone can upload feedback images" | INSERT | public | `bucket_id = 'feedback-images'` |
+
+No UPDATE or DELETE policies exist — uploaded images are immutable. The filename is always a UUID (`{feedback_id}.jpg`), making enumeration impractical.
+
+Images are compressed client-side before upload (max 800 px on the longest side, JPEG quality 0.8) to limit per-object storage size to roughly 50–150 KB.
+
+### 3.6 Input Sanitisation
 
 - `quality` parameter in `POST /scan` is looked up via `_QUALITY_MAP.get(quality.lower(), 500)` — unknown values silently fall back to the medium work-height (500 px); no shell execution or path interpolation occurs  
 - All file reads are in-memory (no temp files written to disk)  
@@ -424,9 +437,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY = <publishable key>
 
 3. Results screen (app/results/page.tsx)
    └─ Reads scanStore.getScan() + scanStore.getClassify()
-   └─ Image carousel: Final → Deskewed → Original → Detected → Regions
+   └─ Image carousel: Final → Warped → Original → Detected → Regions
    └─ Stat chips: confidence %, region count, document_found
    └─ FeedbackCard shown if !isFeedbackOptedOut()
+      → on submit: compresses warped image (max 800 px, JPEG 0.8)
+      → uploads to Supabase Storage `feedback-images/${id}.jpg`
+      → stores public URL as `image_url` in feedback row
+      → upload failure is silent — row is inserted with `image_url = null`
    └─ Save sheet → toggleSaved(id) + optional folder assignment
 ```
 
@@ -459,9 +476,23 @@ confidence      real        NOT NULL
 was_correct     boolean     NOT NULL
 correct_label   text        CHECK (correct_label IN ('handwritten','invoice','form','printed_page'))
                             -- NULL when was_correct = true
+image_url       text        -- nullable; public URL of the compressed warped image in Supabase Storage
 ```
 
 No other tables are defined in this repository; scan history and folders are stored client-side in `localStorage`.
+
+#### Storage bucket: `feedback-images`
+
+```sql
+-- bucket: public = true (public URLs work without auth)
+insert into storage.buckets (id, name, public) values ('feedback-images', 'feedback-images', true);
+
+-- RLS on storage.objects
+"public read feedback images"    SELECT  to public  using  (bucket_id = 'feedback-images')
+"anyone can upload feedback images"  INSERT  to public  with check  (bucket_id = 'feedback-images')
+```
+
+Objects are write-once (no UPDATE/DELETE policies). The `image_url` stored in the feedback row is the Supabase public URL returned by `getPublicUrl()`.
 
 ### 4.5 Authentication Flow
 
@@ -528,7 +559,7 @@ The following limitations are documented in code comments or are implied by fall
 
 - **Bonus 10-class model (67.6% accuracy)** — the extended classifier is substantially less accurate. Code comments note it as a "research extension, not core" and it is not exposed in the production UI.
 
-- **No re-training infrastructure** — the notebook trains from scratch. The `submitFeedback()` data collected in Supabase is not yet wired into any retraining loop; it is available for future use.
+- **Re-training requires manual export** — `backend/scripts/export_corrections.py` downloads all rows where `was_correct = false` and `image_url IS NOT NULL`, organises them into `corrections/{label}/` folders, and prints a per-class breakdown. Run it manually; it is not triggered by any user action. The next training iteration would merge these into the existing dataset and retrain from scratch.
 
 ### Frontend / Storage
 
@@ -584,6 +615,10 @@ The following limitations are documented in code comments or are implied by fall
 | `frontend/lib/history.ts` | Thumbnail `maxDim` | `600 px` | JPEG thumbnail max dimension |
 | `frontend/lib/history.ts` | Thumbnail quality | `0.7` | JPEG quality factor |
 | `frontend/lib/feedback.ts` | `MAX_ITEMS` | `200` | Feedback log entries kept |
+| `frontend/lib/feedback.ts` | Upload `maxDim` | `800 px` | Max dimension before JPEG compress |
+| `frontend/lib/feedback.ts` | Upload JPEG quality | `0.8` | Compression quality for Storage upload |
+| `backend/scripts/export_corrections.py` | `PAGE_SIZE` | `1000` | Supabase rows per paginated request |
+| `backend/scripts/export_corrections.py` | `OUTPUT_ROOT` | `corrections/` | Local folder for downloaded images |
 | `frontend/app/auth/page.tsx` | `PW_MIN` | `8` | Min password length |
 | `frontend/app/auth/page.tsx` | `PW_MAX` | `72` | Max password length (bcrypt limit) |
 | `frontend/app/settings/page.tsx` | `QUOTA_BYTES` | `5 MB` | localStorage display quota |

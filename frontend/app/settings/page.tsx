@@ -214,9 +214,14 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
+            version: 'v0.15',
+            title: 'Feedback Image Storage',
+            current: true,
+            body: 'Uploads the warped image to Supabase Storage (feedback-images bucket) alongside each feedback row. Images are compressed to JPEG (max 800 px) before upload to keep storage usage low. image_url column added to the feedback table; upload failure is silent and does not block the row insert. Added export_corrections.py admin script to download misclassified images by true label for future retraining. Updated main logo (logo3) and replaced doge-mode emojis with custom PNG icons throughout.',
+          },
+          {
             version: 'v0.14',
             title: 'Deskew Removal',
-            current: true,
             body: 'Removed the residual deskew step from the CV pipeline. The existing five-pass detection and perspective correction already produce near-straight output, making the additional Hough Transform pass unnecessary. Simplifies the pipeline and eliminates a source of potential over-correction artefacts.',
           },
           {
@@ -772,7 +777,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.14" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.15" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -790,7 +795,7 @@ export default function SettingsPage() {
             </button>
           )}
           <p className="text-center text-xs" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.14, CSCI435 Demo
+            SmartScan v0.15, CSCI435 Demo
           </p>
         </div>
       </div>
