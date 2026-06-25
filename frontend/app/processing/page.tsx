@@ -166,22 +166,23 @@ export default function ProcessingPage() {
               className="absolute rounded-full"
               style={{ left: 20, right: 20, top: '50%', transform: 'translateY(-50%)', height: 2, backgroundColor: '#E0E0E0' }}
             />
-            <span
-              className="absolute text-xl leading-none transition-all duration-700"
+            <img
+              src="/sidedog.png"
+              alt="dog"
+              className="absolute transition-all duration-700"
               style={{
+                width: 22, height: 22,
                 left: `calc(${(doneCount / STEPS.length) * 80}% + 4px)`,
                 top: '50%',
                 transform: 'translateY(-50%)',
               }}
-            >
-              🐕
-            </span>
-            <span
-              className="absolute text-base leading-none"
-              style={{ right: 0, top: '50%', transform: 'translateY(-50%)' }}
-            >
-              🦴
-            </span>
+            />
+            <img
+              src="/bone.png"
+              alt="bone"
+              className="absolute"
+              style={{ width: 18, height: 18, right: 0, top: '50%', transform: 'translateY(-50%)' }}
+            />
           </div>
         )}
 

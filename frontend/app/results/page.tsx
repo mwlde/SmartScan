@@ -213,6 +213,7 @@ export default function ResultsPage() {
           <FeedbackCard
             predictedLabel={classify.label}
             confidence={classify.confidence}
+            warpedImage={scan?.warped}
             onDone={() => setShowFeedback(false)}
           />
         )}
@@ -233,7 +234,9 @@ export default function ResultsPage() {
             style={{ backgroundColor: isSaved ? '#3BB273' : '#2D7DD2' }}
           >
             {isSaved ? <BookmarkCheck size={16} /> : <Save size={16} />}
-            {isSaved ? (dogeMode ? 'Buried! 🦴' : 'Saved!') : (dogeMode ? 'Bury Result 🦴' : 'Save Result')}
+            {isSaved
+              ? (dogeMode ? <>Buried! <img src="/bone.png" alt="bone" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Saved!')
+              : (dogeMode ? <>Bury Result <img src="/bone.png" alt="bone" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Save Result')}
           </button>
         </div>
       </div>
@@ -254,7 +257,7 @@ export default function ResultsPage() {
             {!folderStep ? (
               <>
                 <h3 className="text-base font-bold mb-1" style={{ color: '#1A1A1A' }}>
-                  {dogeMode ? 'Bury This Sniff 🦴' : 'Save Scan'}
+                  {dogeMode ? <>Bury This Sniff <img src="/bone.png" alt="bone" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Save Scan'}
                 </h3>
                 <p className="text-sm mb-5" style={{ color: '#888' }}>
                   {dogeMode ? 'Where should this sniff go?' : 'Choose where to save this result.'}
@@ -384,10 +387,11 @@ const CLASSES = [
 ]
 
 function FeedbackCard({
-  predictedLabel, confidence, onDone,
+  predictedLabel, confidence, warpedImage, onDone,
 }: {
   predictedLabel: string
   confidence: number
+  warpedImage?: string
   onDone: () => void
 }) {
   const [phase, setPhase] = useState<'asking' | 'correcting' | 'done'>('asking')
@@ -398,7 +402,7 @@ function FeedbackCard({
   async function submit(correctLabel: string | null) {
     setBusy(true)
     if (optOut) setFeedbackOptOut()
-    await submitFeedback(predictedLabel, confidence, correctLabel)
+    await submitFeedback(predictedLabel, confidence, correctLabel, warpedImage)
     setPhase('done')
     setTimeout(onDone, 2000)
   }

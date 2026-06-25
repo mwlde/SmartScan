@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -555,7 +555,7 @@ function StorageScreen({ onBack }: { onBack: () => void }) {
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function SectionLabel({ title }: { title: string }) {
+function SectionLabel({ title }: { title: ReactNode }) {
   return (
     <p className="px-5 pb-2 pt-1 text-xs font-semibold uppercase tracking-widest" style={{ color: '#AAAAAA' }}>
       {title}
@@ -759,10 +759,10 @@ export default function SettingsPage() {
         </SettingsCard>
 
         {/* Fun */}
-        <SectionLabel title="🐾 Fun" />
+        <SectionLabel title={<><img src="/sidedog.png" alt="dog" style={{ width: 14, height: 14, display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />Fun</>} />
         <SettingsCard>
           <Toggle
-            icon={<span style={{ fontSize: 18 }}>🐶</span>}
+            icon={<img src="/sidedog.png" alt="dog" style={{ width: 18, height: 18 }} />}
             label="Doge Mode"
             enabled={dogeMode}
             onToggle={() => handleDogeMode(!dogeMode)}

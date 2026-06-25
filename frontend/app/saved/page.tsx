@@ -37,7 +37,7 @@ function AllScansCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm" style={{ color: '#1A1A1A' }}>
-            {dogeMode ? 'All Sniffs 🐾' : 'All Scans'}
+            {dogeMode ? <>All Sniffs <img src="/sidedog.png" alt="dog" style={{ width: 14, height: 14, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'All Scans'}
           </p>
           <p className="text-xs" style={{ color: '#888' }}>
             {items.length} {dogeMode ? 'sniff' : 'scan'}{items.length !== 1 ? 's' : ''}, default
@@ -177,7 +177,7 @@ function NewFolderSheet({
       >
         <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E0E0E0' }} />
         <h3 className="text-lg font-bold mb-5" style={{ color: '#1A1A1A' }}>
-          {dogeMode ? 'New Kennel 🐾' : 'New Folder'}
+          {dogeMode ? <>New Kennel <img src="/sidedog.png" alt="dog" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'New Folder'}
         </h3>
         <div
           className="flex items-center gap-3 px-4 py-3.5 rounded-2xl mb-5"
@@ -263,7 +263,7 @@ function AddScansSheet({
         {available.length === 0 ? (
           <div className="flex-1 flex items-center justify-center pb-6">
             <p className="text-sm text-center" style={{ color: '#BBBBBB', maxWidth: 200 }}>
-              {dogeMode ? 'All sniffs are already here! Good dog. 🦴' : 'All scans are already in this folder.'}
+              {dogeMode ? <>All sniffs are already here! Good dog. <img src="/bone.png" alt="bone" style={{ width: 14, height: 14, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'All scans are already in this folder.'}
             </p>
           </div>
         ) : (
@@ -437,7 +437,7 @@ function FolderDetailView({
               style={{ backgroundColor: '#2D7DD2' }}
             >
               <Camera size={17} />
-              {dogeMode ? 'Sniff with Camera 🐕' : 'Scan with Camera'}
+              {dogeMode ? <>Sniff with Camera <img src="/sidedog.png" alt="dog" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Scan with Camera'}
             </button>
             <button
               onClick={() => fileRef.current?.click()}
@@ -445,7 +445,7 @@ function FolderDetailView({
               style={{ borderColor: '#2D7DD2', color: '#2D7DD2' }}
             >
               <Upload size={17} />
-              {dogeMode ? 'Fetch Image 🎾' : 'Upload Image to Scan'}
+              {dogeMode ? <>Fetch Image <img src="/tennsiball.png" alt="ball" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Upload Image to Scan'}
             </button>
             {!isSystem && (
               <button
@@ -682,7 +682,7 @@ export default function SavedPage() {
   // Virtual "All Scans" folder built from full history
   const allScansFolder: Folder = {
     id: ALL_SCANS_ID,
-    name: dogeMode ? 'All Sniffs 🐾' : 'All Scans',
+    name: dogeMode ? 'All Sniffs' : 'All Scans',
     color: '#2D7DD2',
     bg: '#EBF3FC',
     itemIds: history.map(h => h.id),
@@ -712,7 +712,7 @@ export default function SavedPage() {
       <div className="flex items-end justify-between px-5 pt-4 pb-4 bg-white">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>
-            {dogeMode ? 'The Kennel 🐾' : 'Saved'}
+            {dogeMode ? <>The Kennel <img src="/sidedog.png" alt="dog" style={{ width: 18, height: 18, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Saved'}
           </h1>
           <p className="text-xs mt-0.5" style={{ color: '#888' }}>
             {dogeMode

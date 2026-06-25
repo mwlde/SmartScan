@@ -329,7 +329,7 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="px-5 pt-4 pb-3 bg-white">
         <h1 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>
-          {dogeMode ? 'Sniff Log 🐾' : 'History'}
+          {dogeMode ? <>Sniff Log <img src="/sidedog.png" alt="dog" style={{ width: 18, height: 18, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'History'}
         </h1>
         <p className="text-xs mt-0.5" style={{ color: '#888' }}>
           {items.length} {dogeMode ? 'sniff' : 'scan'}{items.length !== 1 ? 's' : ''} {dogeMode ? 'logged' : 'total'}
@@ -350,7 +350,7 @@ export default function HistoryPage() {
                 color:           filter === f ? 'white'   : '#888888',
               }}
             >
-              {f === 'all' ? (dogeMode ? 'All Sniffs 🐕' : 'All Scans') : 'Saved'}
+              {f === 'all' ? (dogeMode ? <>All Sniffs <img src="/sidedog.png" alt="dog" style={{ width: 13, height: 13, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'All Scans') : 'Saved'}
             </button>
           ))}
         </div>

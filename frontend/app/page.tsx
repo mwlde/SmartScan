@@ -38,7 +38,7 @@ export default function HomePage() {
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 gap-3">
         <img
-          src={dogeMode ? '/smartscanlogo2.png' : '/smartscanlogo1.png'}
+          src={dogeMode ? '/smartscanlogo2.png' : '/logo3.png'}
           alt="SmartScan logo"
           className="transition-all duration-300"
           style={{ width: 160, height: 160, objectFit: 'contain' }}
@@ -48,7 +48,7 @@ export default function HomePage() {
         </h1>
         <p className="text-center text-sm leading-relaxed mt-1" style={{ color: '#888888', maxWidth: '260px' }}>
           {dogeMode
-            ? 'Sniff, align, and classify your documents instantly. Good boy! 🦴'
+            ? <>Sniff, align, and classify your documents instantly. Good boy! <img src="/bone.png" alt="bone" style={{ width: 16, height: 16, display: 'inline-block', verticalAlign: 'middle' }} /></>
             : 'Detect, align, and classify your documents instantly.'}
         </p>
       </div>
@@ -61,7 +61,7 @@ export default function HomePage() {
           style={{ backgroundColor: '#2D7DD2' }}
         >
           <Camera size={20} />
-          {dogeMode ? 'Sniff with Camera 🐕' : 'Scan with Camera'}
+          {dogeMode ? <>Sniff with Camera <img src="/sidedog.png" alt="dog" style={{ width: 18, height: 18, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Scan with Camera'}
         </button>
         <button
           onClick={() => fileRef.current?.click()}
@@ -69,7 +69,7 @@ export default function HomePage() {
           style={{ borderColor: '#2D7DD2', color: '#2D7DD2' }}
         >
           <Upload size={20} />
-          {dogeMode ? 'Fetch Image 🎾' : 'Upload Image'}
+          {dogeMode ? <>Fetch Image <img src="/tennsiball.png" alt="ball" style={{ width: 18, height: 18, display: 'inline-block', verticalAlign: 'middle' }} /></> : 'Upload Image'}
         </button>
         <input
           ref={fileRef}
