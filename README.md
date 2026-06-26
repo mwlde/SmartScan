@@ -2,7 +2,7 @@
 
 A mobile document scanner that detects, corrects perspective, and classifies document images using computer vision and deep learning. Built for CSCI435 at the University of Wollongong in Dubai.
 
-**Current version: v0.15**
+**Current version: v0.16**
 
 this project gave me a headache and major burn out. im also convinced that no one is ever, and i mean EVER, going to read this md file, but if you will, i added a dog. scroll to the bottom. *wink wink*. 
 
@@ -174,6 +174,7 @@ The training pipeline uses MobileNetV2 with augmentation: random flips, rotation
 
 | Version | Feature |
 |---------|---------|
+| v0.16 | Edge support validation in document detection: rejects quads where any side lacks real Canny edges (catches occlusion bridging from overlapping objects); pass 4 erode/restore logic for overlapping white documents; tighter polygon approximation epsilons |
 | v0.15 | Feedback image storage: warped image uploaded to Supabase Storage alongside each feedback row; export_corrections.py script for retraining data export; logo and icon refresh |
 | v0.14 | Removed deskew step from CV pipeline — perspective correction already produces near-straight output |
 | v0.13 | Upload security hardening on /scan and /classify: MIME + magic-byte validation, 10 MB size limit, dimension cap, generic error responses |

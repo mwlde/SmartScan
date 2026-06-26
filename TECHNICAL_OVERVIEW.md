@@ -1,6 +1,6 @@
 # SmartScan — Technical Overview
 
-**Version:** v0.15  
+**Version:** v0.16  
 **Course:** CSCI435 — Computer Vision Algorithms and Systems  
 **University:** University of Wollongong in Dubai
 
@@ -79,7 +79,8 @@ Target: images where luminance contrast is higher in perceptual space than BGR.
 **Pass 4 — `_detect_white_document(small, min_area_frac, frame_area)`**  
 Target: white/light-coloured documents on dark or cluttered backgrounds.  
 - Converts to HSV, thresholds V-channel at 190 (isolates bright regions)  
-- `cv2.morphologyEx(MORPH_CLOSE)` with (10, 10) kernel  
+- `cv2.erode` with (15, 15) kernel, 2 iterations — breaks thin connections between overlapping white objects (e.g. an envelope sitting on top of a letter), separating them into distinct blobs before contour finding  
+- For each candidate blob: draws it onto an isolated mask and `cv2.dilate` (same kernel, same iterations) to restore the area lost to erosion before fitting a quad  
 - Uses `cv2.minAreaRect` instead of polygon approximation — handles slightly curved pages  
 
 **Pass 5 — `_detect_otsu(gray, min_area_frac, frame_area)`**  
@@ -87,10 +88,11 @@ Target: last resort for high-contrast documents where all edge detectors fail.
 - `cv2.morphologyEx(MORPH_CLOSE)` with (15, 15) kernel — largest kernel in the pipeline  
 - `cv2.threshold(OTSU)` for automatic threshold selection  
 - `cv2.dilate` with (5, 5) kernel, 2 iterations  
+- Also generates a `cv2.Canny(75, 200)` edge map (via a (5, 5) Gaussian blur) purely for edge support validation — Otsu itself doesn't use Canny, but the same `_edge_support` check still runs on the candidate quad  
 
-#### Quad Validation — `_is_valid_quad(quad, frame_area)`
+#### Quad Validation — `_is_valid_quad(quad, frame_area, edge_map=None)`
 
-Every candidate contour is tested against five geometric rules before being accepted:
+Every candidate contour is tested against six geometric rules before being accepted:
 
 | Check | Implementation | Threshold |
 |-------|---------------|-----------|
@@ -99,14 +101,20 @@ Every candidate contour is tested against five geometric rules before being acce
 | **Corner angles** | Dot-product angle at each vertex | Must be in range [50°, 130°] |
 | **Area cap** | `cv2.contourArea(quad) / frame_area` | Must be ≤ 0.90 |
 | **Aspect ratio** | `max(w/h, h/w)` | Must be ≤ 8.0 |
+| **Edge support** | `_edge_support(edge_map, p1, p2)` on all 4 sides | All sides must have ≥ 60% real Canny edge support (only when `edge_map` is provided) |
 
 `_sides_are_parallel()` computes the angle of each of the four sides and verifies that both pairs of opposite sides agree within the threshold. A perspective projection of a rectangle always preserves rough parallelism, so this rejects non-document quads (e.g., a tilted desk edge).
 
-#### Contour-to-Quad Conversion — `_approx_to_quad(contour, frame_area)`
+**Edge support — `_edge_support(edge_map, p1, p2, n_samples=20, radius=3)`**  
+Samples 20 evenly-spaced points along each side of the quad and checks whether any raw Canny edge pixel falls within a 3 px radius of each sample point. A side where fewer than 60% of samples find a real edge was likely bridged by `MORPH_CLOSE` across an occlusion gap rather than being a real document boundary. This is the primary check that rejects quads where an overlapping object (e.g. an envelope) causes one side to straddle both objects.
 
-Attempts polygon approximation with six epsilon values `[0.02, 0.03, 0.04, 0.05, 0.06, 0.08]` (as fractions of the perimeter). If no value produces a valid 4-point quad, falls back to convex hull approximation with epsilons `[0.05, 0.08, 0.10, 0.15]`.
+The `edge_map` passed in is always the **pre-close** Canny output — the map computed before `MORPH_CLOSE` is applied to the edge image. Checking the post-close map would give ~100% support even on fake bridged sides, since morph close fills in exactly those gaps.
 
-`_min_area_rect_quad(contour, frame_area)` is used as an alternative for curved/crumpled pages — it fits a minimum-area bounding rectangle to the contour rather than approximating the polygon.
+#### Contour-to-Quad Conversion — `_approx_to_quad(contour, frame_area, edge_map=None)`
+
+Attempts polygon approximation with eight epsilon values `[0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08]` (as fractions of the perimeter), tried tightest-first. Tighter epsilons produce less aggressive simplification and are less likely to absorb stray segments from nearby objects into a side of the quad. If no value produces a valid 4-point quad, falls back to convex hull approximation with epsilons `[0.05, 0.08, 0.10, 0.15]`. The `edge_map` is passed through to `_is_valid_quad` for the edge support check.
+
+`_min_area_rect_quad(contour, frame_area, edge_map=None)` is used as an alternative for curved/crumpled pages — it fits a minimum-area bounding rectangle to the contour rather than approximating the polygon.
 
 #### Corner Self-Correction — `_fix_bad_corner(quad, frame_h, frame_w)`
 
@@ -592,11 +600,14 @@ The following limitations are documented in code comments or are implied by fall
 | `backend/main.py` | `_QUALITY_MAP` | `{low:350, medium:500, high:800}` | Work-height for detection |
 | `backend/main.py` | Resize limit | `1000 px` | Max longest side before `scan_document()` |
 | `src/document_detection.py` | `PAD` | `10 px` | Border added before detection |
-| `src/document_detection.py` | Epsilon values | `[0.02…0.08]` | Polygon approximation steps |
+| `src/document_detection.py` | Epsilon values | `[0.01…0.08]` | Polygon approximation steps (8 values, tightest-first) |
 | `src/document_detection.py` | Parallelism threshold | `35°` | `max_angle_diff` in `_sides_are_parallel` |
 | `src/document_detection.py` | Corner angle range | `[50°, 130°]` | Valid interior angles |
 | `src/document_detection.py` | Area cap | `0.90` | Max quad as fraction of frame |
 | `src/document_detection.py` | Aspect ratio cap | `8.0` | Max `max(w/h, h/w)` |
+| `src/document_detection.py` | Edge support `n_samples` | `20` | Sample points per quad side |
+| `src/document_detection.py` | Edge support `radius` | `3 px` | Lookup radius around each sample point |
+| `src/document_detection.py` | Edge support `MIN_SUPPORT` | `0.60` | Min fraction of side with real Canny edges |
 | `src/document_detection.py` | Corner fix threshold | `40°` | Min improvement for parallelogram rule |
 | `src/preprocessing.py` | Bilateral d | `9` | `bilateralFilter` diameter |
 | `src/preprocessing.py` | CLAHE clipLimit | `2.0` | |
