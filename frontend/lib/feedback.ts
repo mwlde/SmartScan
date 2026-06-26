@@ -20,6 +20,10 @@ export function setFeedbackOptOut(): void {
   try { localStorage.setItem(OPT_OUT_KEY, 'true') } catch { /* ignore */ }
 }
 
+export function clearFeedbackOptOut(): void {
+  try { localStorage.removeItem(OPT_OUT_KEY) } catch { /* ignore */ }
+}
+
 // 𓆝 𓆟 𓆞 𓆟 𓆝 image upload
 
 // takes a raw base64 png (no data url prefix) and compresses it to a jpeg blob before uploading

@@ -12,6 +12,7 @@ import {
   Lock,
   LogIn,
   LogOut,
+  MessageCircle,
   Shield,
   Sliders,
   UserCircle2,
@@ -20,6 +21,7 @@ import { BottomNav } from '@/components/BottomNav'
 import { getHistory, clearHistory } from '@/lib/history'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import { isFeedbackOptedOut, setFeedbackOptOut, clearFeedbackOptOut } from '@/lib/feedback'
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
@@ -94,8 +96,10 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
           <p className="font-semibold mb-2">What we store</p>
           <ul className="flex flex-col gap-2" style={{ color: '#444' }}>
             {[
-              'Scanned documents and classification results are stored locally on your device only.',
-              'No images, text, or personal data are transmitted to or stored on any external server, except temporarily during processing by the document scanning and classification services.',
+              'By default, scanned documents and classification results stay entirely on your device. Nothing is uploaded unless you choose to submit feedback on a classification.',
+              'If you submit feedback on whether a classification was correct, the associated document image may be uploaded and stored to help improve future versions of the model. This only happens when you actively choose to give feedback — it does not happen during normal scanning or classification.',
+              'Feedback data (predicted label, your correction if any, and the associated image) is stored independently of any account — submitting feedback does not require signing in, and feedback is not linked to your identity unless you are logged in at the time of submission.',
+              'You can opt out of the feedback prompt at any time in Settings ("Don\'t ask me again"), which stops any further document images from being collected.',
               'We do not use cookies, trackers, or third-party analytics.',
             ].map((item, i) => (
               <li key={i} className="flex gap-2" style={{ lineHeight: 1.6 }}>
@@ -110,9 +114,9 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
           <p className="font-semibold mb-2">What we don't do</p>
           <ul className="flex flex-col gap-2" style={{ color: '#444' }}>
             {[
-              'We do not sell, share, or monetize any data.',
-              'We do not retain copies of scanned documents after processing.',
-              'We do not require account creation to use core scanning features.',
+              'We do not sell, share, or monetise any data.',
+              'We do not collect or store documents you scan unless you explicitly submit feedback on them.',
+              'We do not require account creation to use any core feature, including feedback submission.',
             ].map((item, i) => (
               <li key={i} className="flex gap-2" style={{ lineHeight: 1.6 }}>
                 <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#2D7DD2' }} />
@@ -636,6 +640,7 @@ export default function SettingsPage() {
   const [storageUsed, setStorageUsed] = useState('—')
   const [scanQuality, setScanQuality] = useState<Quality>('medium')
   const [dogeMode, setDogeMode] = useState(false)
+  const [feedbackMuted, setFeedbackMuted] = useState(false)
   const [selected, setSelected] = useState<Section | null>(null)
   const [signingOut, setSigningOut] = useState(false)
 
@@ -650,6 +655,12 @@ export default function SettingsPage() {
     const stored = localStorage.getItem('ss_scan_quality')
     if (stored === 'low' || stored === 'medium' || stored === 'high') setScanQuality(stored)
     setDogeMode(localStorage.getItem('ss_doge_mode') === 'true')
+    setFeedbackMuted(isFeedbackOptedOut())
+    // open a specific sub-page if navigated here with ?section=xxx (e.g. from the privacy link in feedback card)
+    const sec = new URLSearchParams(window.location.search).get('section')
+    if (sec && ['privacy', 'terms', 'permissions', 'licenses', 'storage', 'version'].includes(sec)) {
+      setSelected(sec as Section)
+    }
   }, [])
 
   function handleDogeMode(v: boolean) {
@@ -758,6 +769,27 @@ export default function SettingsPage() {
           <Divider />
           <QualitySelector quality={scanQuality} onChange={handleQualityChange} />
         </SettingsCard>
+
+        {/* Feedback */}
+        <SectionLabel title="Feedback" />
+        <SettingsCard>
+          <Toggle
+            icon={<MessageCircle size={18} />}
+            label="Don't ask me again"
+            enabled={feedbackMuted}
+            onToggle={() => {
+              const next = !feedbackMuted
+              if (next) setFeedbackOptOut(); else clearFeedbackOptOut()
+              setFeedbackMuted(next)
+            }}
+          />
+        </SettingsCard>
+        <p className="px-5 -mt-2 mb-4 text-xs" style={{ color: '#AAAAAA', lineHeight: 1.55 }}>
+          Feedback submissions may store document images to help improve the model.{' '}
+          <button onClick={() => setSelected('privacy')} className="underline" style={{ color: '#AAAAAA' }}>
+            See Privacy Policy
+          </button>{' '}for details.
+        </p>
 
         {/* Privacy & Legal */}
         <SectionLabel title="Privacy & Legal" />

@@ -394,6 +394,7 @@ function FeedbackCard({
   warpedImage?: string
   onDone: () => void
 }) {
+  const router = useRouter()
   const [phase, setPhase] = useState<'asking' | 'correcting' | 'done'>('asking')
   const [correction, setCorrection] = useState('')
   const [optOut, setOptOut] = useState(false)
@@ -423,7 +424,7 @@ function FeedbackCard({
           <p className="text-sm font-semibold mb-3" style={{ color: '#1A1A1A' }}>
             Was this classification correct?
           </p>
-          <div className="flex gap-2 mb-3">
+          <div className="flex gap-2 mb-2">
             <button
               onClick={() => submit(null)}
               disabled={busy}
@@ -441,6 +442,16 @@ function FeedbackCard({
               No
             </button>
           </div>
+          <p className="text-xs mb-2" style={{ color: '#BBBBBB', lineHeight: 1.5 }}>
+            Submitting feedback may store this image to help improve future models.{' '}
+            <button
+              onClick={() => router.push('/settings?section=privacy')}
+              className="underline"
+              style={{ color: '#BBBBBB' }}
+            >
+              Privacy Policy
+            </button>
+          </p>
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -460,7 +471,7 @@ function FeedbackCard({
             Select the correct label (current prediction is disabled)
           </p>
 
-          <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             {CLASSES.map(({ key, label }) => {
               const isPredicted = key === predictedLabel
               const isSelected  = key === correction
@@ -482,6 +493,16 @@ function FeedbackCard({
               )
             })}
           </div>
+          <p className="text-xs mb-2" style={{ color: '#BBBBBB', lineHeight: 1.5 }}>
+            Submitting feedback may store this image to help improve future models.{' '}
+            <button
+              onClick={() => router.push('/settings?section=privacy')}
+              className="underline"
+              style={{ color: '#BBBBBB' }}
+            >
+              Privacy Policy
+            </button>
+          </p>
 
           <label className="flex items-center gap-2 cursor-pointer select-none mb-3">
             <input
