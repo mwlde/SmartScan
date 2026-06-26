@@ -218,15 +218,9 @@ const PAGES: Record<Section, { title: string; content: React.ReactNode }> = {
 
         {([
           {
-            version: 'v0.16',
-            title: 'Edge Support Validation',
-            current: true,
-            body: 'Document detection now rejects quads where any side lacks real Canny edge backing. Each side is sampled at 20 evenly-spaced points and a side with fewer than 60% hits within a 3 px radius is treated as a fake edge bridged by morphological close (e.g. an occlusion gap from an overlapping envelope). Pass 4 also gained per-blob erode/restore to separate overlapping white objects before fitting a quad. Pass 5 (Otsu) generates a Canny map for the same check even though Otsu itself does not use Canny for contour finding. Polygon approximation tightened: two new epsilon values (0.01, 0.015) are tried before the existing range.',
-          },
-          {
             version: 'v0.15',
             title: 'Feedback Image Storage',
-            current: false,
+            current: true,
             body: 'Uploads the warped image to Supabase Storage (feedback-images bucket) alongside each feedback row. Images are compressed to JPEG (max 800 px) before upload to keep storage usage low. image_url column added to the feedback table; upload failure is silent and does not block the row insert. Added export_corrections.py admin script to download misclassified images by true label for future retraining. Updated main logo (logo3) and replaced doge-mode emojis with custom PNG icons throughout.',
           },
           {
@@ -815,7 +809,7 @@ export default function SettingsPage() {
         {/* About */}
         <SectionLabel title="About" />
         <SettingsCard>
-          <Row icon={<Info size={18} />}     label="App Version"           value="v0.16" onPress={() => setSelected('version')} />
+          <Row icon={<Info size={18} />}     label="App Version"           value="v0.15" onPress={() => setSelected('version')} />
           <Divider />
           <Row icon={<FileText size={18} />} label="Open Source & Licences" onPress={() => setSelected('licenses')} />
         </SettingsCard>
@@ -833,7 +827,7 @@ export default function SettingsPage() {
             </button>
           )}
           <p className="text-center text-xs" style={{ color: '#BBBBBB' }}>
-            SmartScan v0.16, CSCI435 Demo
+            SmartScan v0.15, CSCI435 Demo
           </p>
         </div>
       </div>
