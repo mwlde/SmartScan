@@ -170,6 +170,22 @@ The training pipeline uses MobileNetV2 with augmentation: random flips, rotation
 
 ---
 
+## Datasets & Licensing
+
+This project uses two datasets for training the core classifier, neither of which is redistributed in this repository:
+
+- **senju14 OCR Dataset of Multi-type Documents** (Kaggle) — licensed under CC BY-NC-SA 4.0. Used strictly for non-commercial academic purposes as part of a university coursework project.
+  https://www.kaggle.com/datasets/senju14/ocr-dataset-of-multi-type-documents
+
+- **suvroo Scanned Images Dataset for OCR and VLM Finetuning** (Kaggle).
+  https://www.kaggle.com/datasets/suvroo/scanned-images-dataset-for-ocr-and-vlm-finetuning
+
+The deployed classifier (`document_classifier_v2.pt`, 4 classes: `handwritten`, `invoice`, `form`, `printed_page`) was trained using the senju14 dataset, which is licensed CC BY-NC-SA 4.0. As a result, this trained model is provided for non-commercial academic use only, consistent with the source dataset's license terms.
+
+This project itself (the application code) is licensed under MIT — see [LICENSE](LICENSE). The MIT license applies to our original code only, not to the third-party datasets or trained model weights, which remain subject to their own license terms as noted above.
+
+---
+
 ## Version history
 
 | Version | Feature |
